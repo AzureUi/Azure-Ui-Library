@@ -1,5 +1,5 @@
 -- ============================================================
--- Azure UI — v3 with loading screen
+-- Azure UI — v3.1 (bug fixes: shadow cleanup + tab self binding)
 -- by Noxi
 -- ============================================================
 
@@ -41,10 +41,6 @@ local SPRING = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.O
 local SMOOTH = TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 local FAST   = TweenInfo.new(0.12, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
--- ============================================================
--- Core helper factories (must be defined before everything)
--- ============================================================
-
 local function new(class, props, children)
     local inst = Instance.new(class)
     for k, v in pairs(props or {}) do inst[k] = v end
@@ -75,7 +71,7 @@ local function padding(t, r, b, l, p)
 end
 
 local function tween(inst, info, props)
-    if not inst then return end
+    if not inst or not inst.Parent then return end
     local t = TweenService:Create(inst, info or SMOOTH, props)
     t:Play()
     return t
@@ -128,13 +124,11 @@ local function addRipple(button, accent)
 
         local ripple = new("Frame", {
             BackgroundColor3 = accent or Color3.fromRGB(145, 125, 255),
-            BackgroundTransparency = 0.6,
-            BorderSizePixel = 0,
+            BackgroundTransparency = 0.6, BorderSizePixel = 0,
             Position = UDim2.fromOffset(relX, relY),
             Size = UDim2.fromOffset(0, 0),
             AnchorPoint = Vector2.new(0.5, 0.5),
-            ZIndex = 3,
-            Parent = button,
+            ZIndex = 3, Parent = button,
         })
         corner(999, ripple)
 
@@ -178,90 +172,65 @@ local function showLoadingScreen(title, subtitle, duration)
         Parent = overlay,
     })
 
-    -- logo text
     local titleLbl = new("TextLabel", {
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 0, 44),
-        Font = Azure.Fonts.Bold,
-        Text = title,
-        TextColor3 = Azure.Theme.Text,
-        TextSize = 40,
-        TextTransparency = 1,
-        Parent = center,
+        BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 44),
+        Font = Azure.Fonts.Bold, Text = title,
+        TextColor3 = Azure.Theme.Text, TextSize = 40,
+        TextTransparency = 1, Parent = center,
     })
 
-    -- subtitle
     local subLbl = new("TextLabel", {
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 0, 0, 46),
-        Size = UDim2.new(1, 0, 0, 18),
-        Font = Azure.Fonts.Regular,
-        Text = subtitle,
-        TextColor3 = Azure.Theme.TextMuted,
-        TextSize = 13,
-        TextTransparency = 1,
-        Parent = center,
+        BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 46),
+        Size = UDim2.new(1, 0, 0, 18), Font = Azure.Fonts.Regular,
+        Text = subtitle, TextColor3 = Azure.Theme.TextMuted,
+        TextSize = 13, TextTransparency = 1, Parent = center,
     })
 
-    -- loading bar track
     local barTrack = new("Frame", {
-        BackgroundColor3 = Azure.Theme.SurfaceHigh,
-        BorderSizePixel = 0,
+        BackgroundColor3 = Azure.Theme.SurfaceHigh, BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0),
         Position = UDim2.new(0.5, 0, 0, 84),
         Size = UDim2.fromOffset(280, 4),
-        BackgroundTransparency = 1,
-        Parent = center,
+        BackgroundTransparency = 1, Parent = center,
     })
     corner(2, barTrack)
 
     local barFill = new("Frame", {
-        BackgroundColor3 = Azure.Theme.Accent,
-        BorderSizePixel = 0,
-        Size = UDim2.fromOffset(0, 4),
-        Parent = barTrack,
+        BackgroundColor3 = Azure.Theme.Accent, BorderSizePixel = 0,
+        Size = UDim2.fromOffset(0, 4), Parent = barTrack,
     })
     corner(2, barFill)
 
-    -- glow behind the bar
     local glow = new("Frame", {
-        BackgroundColor3 = Azure.Theme.Accent,
-        BorderSizePixel = 0,
+        BackgroundColor3 = Azure.Theme.Accent, BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0, 0.5),
         Position = UDim2.new(0, 0, 0.5, 0),
         Size = UDim2.fromOffset(40, 12),
-        BackgroundTransparency = 1,
-        ZIndex = 0,
-        Parent = barTrack,
+        BackgroundTransparency = 1, ZIndex = 0, Parent = barTrack,
     })
     corner(6, glow)
 
-    -- fade in overlay + content
     tween(overlay, SMOOTH, { BackgroundTransparency = 0 })
     tween(titleLbl, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { TextTransparency = 0 })
     tween(subLbl, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { TextTransparency = 0 })
     tween(barTrack, SMOOTH, { BackgroundTransparency = 0 })
     tween(glow, SMOOTH, { BackgroundTransparency = 0.7 })
 
-    -- fill the bar
     local fillTween = TweenService:Create(barFill,
         TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
         { Size = UDim2.fromOffset(280, 4) })
     fillTween:Play()
 
-    -- slide the glow along with fill
     task.spawn(function()
         local startT = tick()
         while tick() - startT < duration do
             local alpha = math.clamp((tick() - startT) / duration, 0, 1)
-            -- easing out quart
             local eased = 1 - (1 - alpha) ^ 4
             glow.Position = UDim2.new(0, eased * 280, 0.5, 0)
             task.wait()
         end
     end)
 
-    -- fade out
     task.delay(duration, function()
         tween(titleLbl, SMOOTH, { TextTransparency = 1 })
         tween(subLbl, SMOOTH, { TextTransparency = 1 })
@@ -269,7 +238,7 @@ local function showLoadingScreen(title, subtitle, duration)
         tween(glow, SMOOTH, { BackgroundTransparency = 1 })
         tween(overlay, SMOOTH, { BackgroundTransparency = 1 })
         task.wait(0.3)
-        gui:Destroy()
+        if gui and gui.Parent then gui:Destroy() end
     end)
 
     return gui
@@ -355,7 +324,7 @@ function Azure:Notify(opts)
         tween(titleLbl, SMOOTH, { TextTransparency = 1 })
         tween(contentLbl, SMOOTH, { TextTransparency = 1 })
         task.wait(0.3)
-        card:Destroy()
+        if card and card.Parent then card:Destroy() end
     end)
 
     return card
@@ -728,7 +697,7 @@ local function makeDropdown(parent, cfg, self)
     local buttons = {}
 
     local function refreshOptions(newOptions)
-        for _, b in ipairs(buttons) do b:Destroy() end
+        for _, b in ipairs(buttons) do if b and b.Parent then b:Destroy() end end
         buttons = {}
         options = newOptions or options
         for i, opt in ipairs(options) do
@@ -798,7 +767,7 @@ local function makeLabel(parent, cfg, self)
 
     if cfg.Update then
         task.spawn(function()
-            while row.Parent do
+            while row and row.Parent do
                 task.wait(cfg.UpdateRate or 1)
                 local ok, val = pcall(cfg.Update)
                 if ok and val ~= nil then label.Text = tostring(val) end
@@ -838,14 +807,18 @@ local function makeDivider(parent, self)
     })
 end
 
-local function makeTab(window, cfg, self)
+-- ============================================================
+-- Tab factory — takes the Azure module as `api`
+-- ============================================================
+
+local function makeTab(window, cfg, api)
     local name = cfg.Name or "Tab"
 
     local content = new("ScrollingFrame", {
         BackgroundTransparency = 1, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 1, 0), CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        ScrollBarThickness = 3, ScrollBarImageColor3 = self.Theme.Stroke,
+        ScrollBarThickness = 3, ScrollBarImageColor3 = api.Theme.Stroke,
         ScrollBarImageTransparency = 0.4, Visible = false,
         Parent = window._contentHolder,
     })
@@ -859,14 +832,14 @@ local function makeTab(window, cfg, self)
     local function nextOrder() order = order + 1; return order end
 
     local tabBtn = new("TextButton", {
-        BackgroundColor3 = self.Theme.Surface, BorderSizePixel = 0,
+        BackgroundColor3 = api.Theme.Surface, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 34), AutoButtonColor = false,
         Text = "", LayoutOrder = nextOrder(), Parent = window._sidebarList,
     })
-    corner(self.Radius.Small, tabBtn)
+    corner(api.Radius.Small, tabBtn)
 
     local accent = new("Frame", {
-        BackgroundColor3 = self.Theme.Accent, BorderSizePixel = 0,
+        BackgroundColor3 = api.Theme.Accent, BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0),
         Size = UDim2.new(0, 3, 0.4, 0), BackgroundTransparency = 1, Parent = tabBtn,
     })
@@ -874,8 +847,8 @@ local function makeTab(window, cfg, self)
 
     local tabLabel = new("TextLabel", {
         BackgroundTransparency = 1, Size = UDim2.new(1, -12, 1, 0),
-        Position = UDim2.new(0, 12, 0, 0), Font = self.Fonts.Medium,
-        Text = name, TextColor3 = self.Theme.TextMuted,
+        Position = UDim2.new(0, 12, 0, 0), Font = api.Fonts.Medium,
+        Text = name, TextColor3 = api.Theme.TextMuted,
         TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = tabBtn,
     })
 
@@ -884,68 +857,73 @@ local function makeTab(window, cfg, self)
     local function select()
         for _, t in ipairs(window._tabs) do
             t._content.Visible = false
-            tween(t._btn, SMOOTH, { BackgroundColor3 = self.Theme.Surface })
+            tween(t._btn, SMOOTH, { BackgroundColor3 = api.Theme.Surface })
             tween(t._accent, SMOOTH, { BackgroundTransparency = 1, Size = UDim2.new(0, 3, 0.4, 0) })
-            tween(t._label, SMOOTH, { TextColor3 = self.Theme.TextMuted })
+            tween(t._label, SMOOTH, { TextColor3 = api.Theme.TextMuted })
         end
         content.Visible = true
-        tween(tabBtn, SMOOTH, { BackgroundColor3 = self.Theme.SurfaceHigh })
+        tween(tabBtn, SMOOTH, { BackgroundColor3 = api.Theme.SurfaceHigh })
         tween(accent, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
             BackgroundTransparency = 0,
             Size = UDim2.new(0, 3, 0.65, 0),
         })
-        tween(tabLabel, SMOOTH, { TextColor3 = self.Theme.Text })
+        tween(tabLabel, SMOOTH, { TextColor3 = api.Theme.Text })
         window._currentTab = tab
     end
 
     tabBtn.MouseButton1Click:Connect(select)
     tabBtn.MouseEnter:Connect(function()
         if window._currentTab ~= tab then
-            tween(tabBtn, FAST, { BackgroundColor3 = self.Theme.SurfaceAlt })
-            tween(tabLabel, FAST, { TextColor3 = self.Theme.Text })
+            tween(tabBtn, FAST, { BackgroundColor3 = api.Theme.SurfaceAlt })
+            tween(tabLabel, FAST, { TextColor3 = api.Theme.Text })
         end
     end)
     tabBtn.MouseLeave:Connect(function()
         if window._currentTab ~= tab then
-            tween(tabBtn, FAST, { BackgroundColor3 = self.Theme.Surface })
-            tween(tabLabel, FAST, { TextColor3 = self.Theme.TextMuted })
+            tween(tabBtn, FAST, { BackgroundColor3 = api.Theme.Surface })
+            tween(tabLabel, FAST, { TextColor3 = api.Theme.TextMuted })
         end
     end)
 
     function tab:Select() select() end
     function tab:CreateSection(title)
-        local s = makeSection(content, title, self); s.LayoutOrder = nextOrder(); return s
+        local s = makeSection(content, title, api); s.LayoutOrder = nextOrder(); return s
     end
     function tab:CreateDivider()
-        local d = makeDivider(content, self); d.LayoutOrder = nextOrder(); return d
+        local d = makeDivider(content, api); d.LayoutOrder = nextOrder(); return d
     end
     function tab:CreateToggle(cfg)
-        local el = makeToggle(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
+        local el = makeToggle(content, cfg, api); el.Instance.LayoutOrder = nextOrder(); return el
     end
     function tab:CreateSlider(cfg)
-        local el = makeSlider(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
+        local el = makeSlider(content, cfg, api); el.Instance.LayoutOrder = nextOrder(); return el
     end
     function tab:CreateButton(cfg)
-        local el = makeButton(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
+        local el = makeButton(content, cfg, api); el.Instance.LayoutOrder = nextOrder(); return el
     end
     function tab:CreateInput(cfg)
-        local el = makeInput(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
+        local el = makeInput(content, cfg, api); el.Instance.LayoutOrder = nextOrder(); return el
     end
     function tab:CreateParagraph(cfg)
-        local el = makeParagraph(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
+        local el = makeParagraph(content, cfg, api); el.Instance.LayoutOrder = nextOrder(); return el
     end
     function tab:CreateDropdown(cfg)
-        local el = makeDropdown(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
+        local el = makeDropdown(content, cfg, api); el.Instance.LayoutOrder = nextOrder(); return el
     end
     function tab:CreateLabel(cfg)
-        local el = makeLabel(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
+        local el = makeLabel(content, cfg, api); el.Instance.LayoutOrder = nextOrder(); return el
     end
 
     return tab
 end
 
+-- ============================================================
+-- Window
+-- ============================================================
+
 function Azure:CreateWindow(cfg)
     cfg = cfg or {}
+    local api    = self
     local width  = cfg.Width  or 560
     local height = cfg.Height or 460
     local title  = cfg.Title  or "Azure"
@@ -955,6 +933,11 @@ function Azure:CreateWindow(cfg)
         IgnoreGuiInset = true, DisplayOrder = 9999,
     })
     safeParent(gui)
+
+    -- make sure the shadow / window die if the gui is destroyed externally
+    gui.Destroying:Connect(function()
+        notifHolder = nil
+    end)
 
     local shadow = new("Frame", {
         Name = "Shadow", BackgroundColor3 = Color3.new(0, 0, 0),
@@ -1047,12 +1030,12 @@ function Azure:CreateWindow(cfg)
         tween(main, SMOOTH, { BackgroundTransparency = 1 })
         tween(shadow, SMOOTH, { BackgroundTransparency = 1 })
         task.wait(0.25)
-        gui:Destroy()
+        if gui and gui.Parent then gui:Destroy() end
     end)
 
     function window:CreateTab(cfg)
         cfg = cfg or {}
-        local tab = makeTab(window, cfg, self)
+        local tab = makeTab(window, cfg, api)   -- pass the Azure module, not self
         window._tabs[#window._tabs + 1] = tab
         if #window._tabs == 1 then tab:Select() end
         return tab
@@ -1062,7 +1045,13 @@ function Azure:CreateWindow(cfg)
         if tab and tab.Select then tab:Select() end
     end
 
-    function window:Destroy() gui:Destroy() end
+    function window:Destroy()
+        tween(main, SMOOTH, { BackgroundTransparency = 1 })
+        tween(shadow, SMOOTH, { BackgroundTransparency = 1 })
+        task.delay(0.3, function()
+            if gui and gui.Parent then gui:Destroy() end
+        end)
+    end
 
     function window:Toggle(state)
         if state == nil then
