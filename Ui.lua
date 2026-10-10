@@ -1,11 +1,10 @@
 -- ============================================================
--- Azure UI — v2, clean + animated
+-- Azure UI — v3 with loading screen
 -- by Noxi
 -- ============================================================
 
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local RunService       = game:GetService("RunService")
 local Players          = game:GetService("Players")
 local CoreGui          = game:GetService("CoreGui")
 local LocalPlayer      = Players.LocalPlayer
@@ -14,7 +13,7 @@ local Azure = {}
 Azure.__index = Azure
 
 Azure.Theme = {
-    Background  = Color3.fromRGB(15, 15, 21),
+    Background  = Color3.fromRGB(14, 14, 20),
     Surface     = Color3.fromRGB(20, 20, 28),
     SurfaceAlt  = Color3.fromRGB(27, 27, 37),
     SurfaceHigh = Color3.fromRGB(35, 35, 47),
@@ -42,6 +41,10 @@ local SPRING = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.O
 local SMOOTH = TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 local FAST   = TweenInfo.new(0.12, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
+-- ============================================================
+-- Core helper factories (must be defined before everything)
+-- ============================================================
+
 local function new(class, props, children)
     local inst = Instance.new(class)
     for k, v in pairs(props or {}) do inst[k] = v end
@@ -49,11 +52,14 @@ local function new(class, props, children)
     return inst
 end
 
-local function corner(r, p) return new("UICorner", { CornerRadius = UDim.new(0, r), Parent = p }) end
+local function corner(r, p)
+    return new("UICorner", { CornerRadius = UDim.new(0, r or 0), Parent = p })
+end
 
 local function stroke(color, thickness, transparency, p)
     return new("UIStroke", {
-        Color = color, Thickness = thickness or 1,
+        Color = color or Color3.new(1, 1, 1),
+        Thickness = thickness or 1,
         Transparency = transparency or 0,
         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
         Parent = p,
@@ -69,6 +75,7 @@ local function padding(t, r, b, l, p)
 end
 
 local function tween(inst, info, props)
+    if not inst then return end
     local t = TweenService:Create(inst, info or SMOOTH, props)
     t:Play()
     return t
@@ -112,7 +119,6 @@ local function makeDraggable(frame, handle, onStart, onEnd)
     end)
 end
 
--- ripple effect on click
 local function addRipple(button, accent)
     button.ClipsDescendants = true
     button.MouseButton1Down:Connect(function()
@@ -121,7 +127,7 @@ local function addRipple(button, accent)
         local relY = mouse.Y - button.AbsolutePosition.Y
 
         local ripple = new("Frame", {
-            BackgroundColor3 = accent or Azure.Theme.Accent,
+            BackgroundColor3 = accent or Color3.fromRGB(145, 125, 255),
             BackgroundTransparency = 0.6,
             BorderSizePixel = 0,
             Position = UDim2.fromOffset(relX, relY),
@@ -133,14 +139,143 @@ local function addRipple(button, accent)
         corner(999, ripple)
 
         local maxSize = math.max(button.AbsoluteSize.X, button.AbsoluteSize.Y) * 2
-        local grow = TweenService:Create(ripple, TweenInfo.new(0.55, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Size = UDim2.fromOffset(maxSize, maxSize),
-            BackgroundTransparency = 1,
-        })
+        local grow = TweenService:Create(ripple,
+            TweenInfo.new(0.55, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+            { Size = UDim2.fromOffset(maxSize, maxSize), BackgroundTransparency = 1 })
         grow:Play()
         grow.Completed:Connect(function() ripple:Destroy() end)
     end)
 end
+
+-- ============================================================
+-- Loading screen
+-- ============================================================
+
+local function showLoadingScreen(title, subtitle, duration)
+    title = title or "Azure"
+    subtitle = subtitle or "Loading"
+    duration = duration or 1.8
+
+    local gui = new("ScreenGui", {
+        Name = "AzureLoading", ResetOnSpawn = false,
+        IgnoreGuiInset = true, DisplayOrder = 20000,
+    })
+    safeParent(gui)
+
+    local overlay = new("Frame", {
+        BackgroundColor3 = Color3.fromRGB(10, 10, 15),
+        BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Parent = gui,
+    })
+
+    local center = new("Frame", {
+        BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Size = UDim2.fromOffset(360, 120),
+        Parent = overlay,
+    })
+
+    -- logo text
+    local titleLbl = new("TextLabel", {
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 44),
+        Font = Azure.Fonts.Bold,
+        Text = title,
+        TextColor3 = Azure.Theme.Text,
+        TextSize = 40,
+        TextTransparency = 1,
+        Parent = center,
+    })
+
+    -- subtitle
+    local subLbl = new("TextLabel", {
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 46),
+        Size = UDim2.new(1, 0, 0, 18),
+        Font = Azure.Fonts.Regular,
+        Text = subtitle,
+        TextColor3 = Azure.Theme.TextMuted,
+        TextSize = 13,
+        TextTransparency = 1,
+        Parent = center,
+    })
+
+    -- loading bar track
+    local barTrack = new("Frame", {
+        BackgroundColor3 = Azure.Theme.SurfaceHigh,
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, 84),
+        Size = UDim2.fromOffset(280, 4),
+        BackgroundTransparency = 1,
+        Parent = center,
+    })
+    corner(2, barTrack)
+
+    local barFill = new("Frame", {
+        BackgroundColor3 = Azure.Theme.Accent,
+        BorderSizePixel = 0,
+        Size = UDim2.fromOffset(0, 4),
+        Parent = barTrack,
+    })
+    corner(2, barFill)
+
+    -- glow behind the bar
+    local glow = new("Frame", {
+        BackgroundColor3 = Azure.Theme.Accent,
+        BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 0, 0.5, 0),
+        Size = UDim2.fromOffset(40, 12),
+        BackgroundTransparency = 1,
+        ZIndex = 0,
+        Parent = barTrack,
+    })
+    corner(6, glow)
+
+    -- fade in overlay + content
+    tween(overlay, SMOOTH, { BackgroundTransparency = 0 })
+    tween(titleLbl, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { TextTransparency = 0 })
+    tween(subLbl, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { TextTransparency = 0 })
+    tween(barTrack, SMOOTH, { BackgroundTransparency = 0 })
+    tween(glow, SMOOTH, { BackgroundTransparency = 0.7 })
+
+    -- fill the bar
+    local fillTween = TweenService:Create(barFill,
+        TweenInfo.new(duration, Enum.EasingStyle.Quart, Enum.EasingDirection.Out),
+        { Size = UDim2.fromOffset(280, 4) })
+    fillTween:Play()
+
+    -- slide the glow along with fill
+    task.spawn(function()
+        local startT = tick()
+        while tick() - startT < duration do
+            local alpha = math.clamp((tick() - startT) / duration, 0, 1)
+            -- easing out quart
+            local eased = 1 - (1 - alpha) ^ 4
+            glow.Position = UDim2.new(0, eased * 280, 0.5, 0)
+            task.wait()
+        end
+    end)
+
+    -- fade out
+    task.delay(duration, function()
+        tween(titleLbl, SMOOTH, { TextTransparency = 1 })
+        tween(subLbl, SMOOTH, { TextTransparency = 1 })
+        tween(barTrack, SMOOTH, { BackgroundTransparency = 1 })
+        tween(glow, SMOOTH, { BackgroundTransparency = 1 })
+        tween(overlay, SMOOTH, { BackgroundTransparency = 1 })
+        task.wait(0.3)
+        gui:Destroy()
+    end)
+
+    return gui
+end
+
+Azure.ShowLoading = showLoadingScreen
 
 -- ============================================================
 -- Notifications
@@ -211,21 +346,12 @@ function Azure:Notify(opts)
         TextTruncate = Enum.TextTruncate.AtEnd, TextTransparency = 1, Parent = card,
     })
 
-    tween(card, SMOOTH, {
-        BackgroundTransparency = 0,
-        Position = UDim2.new(0, 0, 0, 0),
-    })
+    tween(card, SMOOTH, { BackgroundTransparency = 0, Position = UDim2.new(0, 0, 0, 0) })
     tween(titleLbl, SMOOTH, { TextTransparency = 0 })
     tween(contentLbl, SMOOTH, { TextTransparency = 0 })
-    tween(accent, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 3, 1, 0),
-    })
 
     task.delay(opts.Duration or 4, function()
-        tween(card, SMOOTH, {
-            BackgroundTransparency = 1,
-            Position = UDim2.new(1, 40, 0, 0),
-        })
+        tween(card, SMOOTH, { BackgroundTransparency = 1, Position = UDim2.new(1, 40, 0, 0) })
         tween(titleLbl, SMOOTH, { TextTransparency = 1 })
         tween(contentLbl, SMOOTH, { TextTransparency = 1 })
         task.wait(0.3)
@@ -342,18 +468,17 @@ local function makeSlider(parent, cfg, self)
     })
     corner(3, bar)
 
+    local glow = new("Frame", {
+        BackgroundColor3 = self.Theme.Accent, BorderSizePixel = 0,
+        Size = UDim2.new(0, 0, 1, 0), BackgroundTransparency = 0.6, Parent = bar,
+    })
+    corner(3, glow)
+
     local fill = new("Frame", {
         BackgroundColor3 = self.Theme.Accent, BorderSizePixel = 0,
         Size = UDim2.new(0, 0, 1, 0), Parent = bar,
     })
     corner(3, fill)
-
-    local glow = new("Frame", {
-        BackgroundColor3 = self.Theme.Accent, BorderSizePixel = 0,
-        Size = UDim2.new(0, 0, 0, 12), Position = UDim2.new(0, 0, 0.5, -6),
-        BackgroundTransparency = 0.6, Parent = bar,
-    })
-    corner(6, glow)
 
     local knob = new("Frame", {
         BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0,
@@ -366,7 +491,7 @@ local function makeSlider(parent, cfg, self)
     local function refresh()
         local alpha = (value - min) / math.max(max - min, 0.0001)
         fill.Size = UDim2.new(alpha, 0, 1, 0)
-        glow.Size = UDim2.new(alpha, 0, 0, 12)
+        glow.Size = UDim2.new(alpha, 0, 1, 0)
         knob.Position = UDim2.new(alpha, 0, 0.5, 0)
         valueLbl.Text = tostring(value) .. suffix
     end
@@ -408,13 +533,9 @@ local function makeSlider(parent, cfg, self)
         end
     end)
 
-    row.MouseEnter:Connect(function()
-        tween(rowStroke, FAST, { Color = self.Theme.StrokeHigh })
-    end)
+    row.MouseEnter:Connect(function() tween(rowStroke, FAST, { Color = self.Theme.StrokeHigh }) end)
     row.MouseLeave:Connect(function()
-        if not dragging then
-            tween(rowStroke, FAST, { Color = self.Theme.Stroke })
-        end
+        if not dragging then tween(rowStroke, FAST, { Color = self.Theme.Stroke }) end
     end)
 
     refresh()
@@ -453,12 +574,8 @@ local function makeButton(parent, cfg, self)
         tween(btn, FAST, { BackgroundColor3 = self.Theme.SurfaceAlt })
         tween(btnStroke, FAST, { Color = self.Theme.Stroke })
     end)
-    btn.MouseButton1Down:Connect(function()
-        tween(label, FAST, { TextColor3 = self.Theme.Accent })
-    end)
-    btn.MouseButton1Up:Connect(function()
-        tween(label, SMOOTH, { TextColor3 = self.Theme.Text })
-    end)
+    btn.MouseButton1Down:Connect(function() tween(label, FAST, { TextColor3 = self.Theme.Accent }) end)
+    btn.MouseButton1Up:Connect(function() tween(label, SMOOTH, { TextColor3 = self.Theme.Text }) end)
     btn.MouseButton1Click:Connect(function()
         if cfg.Callback then task.spawn(cfg.Callback) end
     end)
@@ -500,12 +617,10 @@ local function makeInput(parent, cfg, self)
     local boxStroke = stroke(self.Theme.Stroke, 1, 0.2, box)
     box.Focused:Connect(function()
         tween(boxStroke, FAST, { Color = self.Theme.Accent })
-        tween(box, FAST, { BackgroundColor3 = self.Theme.Surface })
         tween(rowStroke, FAST, { Color = self.Theme.Accent })
     end)
     box.FocusLost:Connect(function(enter)
         tween(boxStroke, FAST, { Color = self.Theme.Stroke })
-        tween(box, FAST, { BackgroundColor3 = self.Theme.SurfaceHigh })
         tween(rowStroke, FAST, { Color = self.Theme.Stroke })
         if cfg.Callback then task.spawn(cfg.Callback, box.Text, enter) end
     end)
@@ -583,7 +698,6 @@ local function makeDropdown(parent, cfg, self)
         TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, Parent = btn,
     })
 
-    -- animated caret (two lines forming a chevron)
     local caretHolder = new("Frame", {
         BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0.5),
         Position = UDim2.new(1, -8, 0.5, 0),
@@ -627,7 +741,6 @@ local function makeDropdown(parent, cfg, self)
                 ZIndex = 6, Parent = list,
             })
             padding(0, 10, 0, 10, optBtn)
-
             optBtn.MouseEnter:Connect(function()
                 tween(optBtn, FAST, { BackgroundColor3 = self.Theme.SurfaceHigh, TextColor3 = self.Theme.Text })
             end)
@@ -657,7 +770,6 @@ local function makeDropdown(parent, cfg, self)
         tween(caretHolder, SMOOTH, { Rotation = open and 180 or 0 })
         tween(chevron, FAST, { TextColor3 = open and self.Theme.Accent or self.Theme.TextMuted })
         tween(rowStroke, FAST, { Color = open and self.Theme.Accent or self.Theme.Stroke })
-        tween(btn, FAST, { BackgroundColor3 = open and self.Theme.Surface or self.Theme.SurfaceHigh })
     end)
 
     refreshOptions(options)
@@ -756,7 +868,7 @@ local function makeTab(window, cfg, self)
     local accent = new("Frame", {
         BackgroundColor3 = self.Theme.Accent, BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 0, 0.5, 0),
-        Size = UDim2.new(0, 3, 0.6, 0), BackgroundTransparency = 1, Parent = tabBtn,
+        Size = UDim2.new(0, 3, 0.4, 0), BackgroundTransparency = 1, Parent = tabBtn,
     })
     corner(2, accent)
 
@@ -846,7 +958,7 @@ function Azure:CreateWindow(cfg)
 
     local shadow = new("Frame", {
         Name = "Shadow", BackgroundColor3 = Color3.new(0, 0, 0),
-        BackgroundTransparency = 0.7, BorderSizePixel = 0,
+        BackgroundTransparency = 1, BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
         Size = UDim2.new(0, width + 8, 0, height + 8),
         ZIndex = 0, Parent = gui,
@@ -857,18 +969,16 @@ function Azure:CreateWindow(cfg)
         Name = "Main", BackgroundColor3 = self.Theme.Background, BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
         Size = UDim2.new(0, width, 0, height),
+        BackgroundTransparency = 1,
         ClipsDescendants = true, Parent = gui,
     })
     corner(self.Radius.Window, main)
     local mainStroke = stroke(self.Theme.Stroke, 1, 0.2, main)
 
-    -- opening animation: fade + slight scale
-    main.BackgroundTransparency = 1
-    shadow.BackgroundTransparency = 1
-    tween(main, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+    tween(main, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
         BackgroundTransparency = 0,
     })
-    tween(shadow, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+    tween(shadow, TweenInfo.new(0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
         BackgroundTransparency = 0.7,
     })
 
@@ -876,7 +986,7 @@ function Azure:CreateWindow(cfg)
         Name = "Header", BackgroundColor3 = self.Theme.Surface,
         BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 42), Parent = main,
     })
-    local headerAccent = new("Frame", {
+    new("Frame", {
         BackgroundColor3 = self.Theme.Accent, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1),
         BackgroundTransparency = 0.5, Parent = header,
@@ -934,9 +1044,9 @@ function Azure:CreateWindow(cfg)
         function() tween(mainStroke, SMOOTH, { Color = self.Theme.Stroke }) end)
 
     close.MouseButton1Click:Connect(function()
-        tween(main, SMOOTH, { BackgroundTransparency = 1, Size = UDim2.new(0, width - 20, 0, height - 20) })
+        tween(main, SMOOTH, { BackgroundTransparency = 1 })
         tween(shadow, SMOOTH, { BackgroundTransparency = 1 })
-        task.wait(0.24)
+        task.wait(0.25)
         gui:Destroy()
     end)
 
