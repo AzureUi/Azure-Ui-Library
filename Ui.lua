@@ -1,10 +1,11 @@
 -- ============================================================
--- Azure UI — clean modern Roblox UI library for executors
+-- Azure UI — v2, clean + animated
 -- by Noxi
 -- ============================================================
 
 local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local RunService       = game:GetService("RunService")
 local Players          = game:GetService("Players")
 local CoreGui          = game:GetService("CoreGui")
 local LocalPlayer      = Players.LocalPlayer
@@ -13,17 +14,17 @@ local Azure = {}
 Azure.__index = Azure
 
 Azure.Theme = {
-    Background  = Color3.fromRGB(16, 16, 22),
-    Surface     = Color3.fromRGB(22, 22, 30),
-    SurfaceAlt  = Color3.fromRGB(28, 28, 38),
-    SurfaceHigh = Color3.fromRGB(36, 36, 48),
-    Stroke      = Color3.fromRGB(40, 40, 55),
-    StrokeHigh  = Color3.fromRGB(90, 90, 130),
-    Accent      = Color3.fromRGB(140, 120, 255),
-    AccentSoft  = Color3.fromRGB(80, 70, 160),
-    Text        = Color3.fromRGB(238, 236, 248),
-    TextMuted   = Color3.fromRGB(140, 138, 160),
-    TextDim     = Color3.fromRGB(95, 94, 112),
+    Background  = Color3.fromRGB(15, 15, 21),
+    Surface     = Color3.fromRGB(20, 20, 28),
+    SurfaceAlt  = Color3.fromRGB(27, 27, 37),
+    SurfaceHigh = Color3.fromRGB(35, 35, 47),
+    Stroke      = Color3.fromRGB(42, 42, 58),
+    StrokeHigh  = Color3.fromRGB(95, 95, 140),
+    Accent      = Color3.fromRGB(145, 125, 255),
+    AccentDim   = Color3.fromRGB(90, 75, 180),
+    Text        = Color3.fromRGB(238, 236, 250),
+    TextMuted   = Color3.fromRGB(138, 136, 160),
+    TextDim     = Color3.fromRGB(92, 92, 112),
     Success     = Color3.fromRGB(120, 220, 160),
     Warning     = Color3.fromRGB(240, 190, 110),
     Error       = Color3.fromRGB(240, 120, 120),
@@ -36,6 +37,10 @@ Azure.Fonts = {
 }
 
 Azure.Radius = { Window = 14, Card = 10, Small = 6 }
+
+local SPRING = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local SMOOTH = TweenInfo.new(0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+local FAST   = TweenInfo.new(0.12, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
 
 local function new(class, props, children)
     local inst = Instance.new(class)
@@ -63,10 +68,8 @@ local function padding(t, r, b, l, p)
     })
 end
 
-local function tween(inst, time, props, style, dir)
-    local t = TweenService:Create(inst,
-        TweenInfo.new(time, style or Enum.EasingStyle.Quart, dir or Enum.EasingDirection.Out),
-        props)
+local function tween(inst, info, props)
+    local t = TweenService:Create(inst, info or SMOOTH, props)
     t:Play()
     return t
 end
@@ -78,7 +81,7 @@ local function safeParent(gui)
     if not gui.Parent then gui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 end
 
-local function makeDraggable(frame, handle)
+local function makeDraggable(frame, handle, onStart, onEnd)
     handle = handle or frame
     local dragging, startMouse, startPos = false, nil, nil
     handle.InputBegan:Connect(function(input)
@@ -87,6 +90,7 @@ local function makeDraggable(frame, handle)
             dragging = true
             startMouse = input.Position
             startPos = frame.Position
+            if onStart then onStart() end
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
@@ -103,9 +107,44 @@ local function makeDraggable(frame, handle)
         if input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch then
             dragging = false
+            if onEnd then onEnd() end
         end
     end)
 end
+
+-- ripple effect on click
+local function addRipple(button, accent)
+    button.ClipsDescendants = true
+    button.MouseButton1Down:Connect(function()
+        local mouse = UserInputService:GetMouseLocation()
+        local relX = mouse.X - button.AbsolutePosition.X
+        local relY = mouse.Y - button.AbsolutePosition.Y
+
+        local ripple = new("Frame", {
+            BackgroundColor3 = accent or Azure.Theme.Accent,
+            BackgroundTransparency = 0.6,
+            BorderSizePixel = 0,
+            Position = UDim2.fromOffset(relX, relY),
+            Size = UDim2.fromOffset(0, 0),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            ZIndex = 3,
+            Parent = button,
+        })
+        corner(999, ripple)
+
+        local maxSize = math.max(button.AbsoluteSize.X, button.AbsoluteSize.Y) * 2
+        local grow = TweenService:Create(ripple, TweenInfo.new(0.55, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.fromOffset(maxSize, maxSize),
+            BackgroundTransparency = 1,
+        })
+        grow:Play()
+        grow.Completed:Connect(function() ripple:Destroy() end)
+    end)
+end
+
+-- ============================================================
+-- Notifications
+-- ============================================================
 
 local notifHolder
 local function getNotifHolder()
@@ -143,13 +182,15 @@ function Azure:Notify(opts)
     local card = new("Frame", {
         BackgroundColor3 = self.Theme.SurfaceAlt, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 60),
-        BackgroundTransparency = 1, Parent = holder,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, 40, 0, 0),
+        Parent = holder,
     })
     corner(self.Radius.Card, card)
     stroke(self.Theme.Stroke, 1, 0.2, card)
     padding(10, 14, 10, 14, card)
 
-    new("Frame", {
+    local accent = new("Frame", {
         BackgroundColor3 = bar, BorderSizePixel = 0,
         Size = UDim2.new(0, 3, 1, 0), Position = UDim2.new(0, -14, 0, 0),
         Parent = card,
@@ -170,20 +211,33 @@ function Azure:Notify(opts)
         TextTruncate = Enum.TextTruncate.AtEnd, TextTransparency = 1, Parent = card,
     })
 
-    tween(card, 0.25, { BackgroundTransparency = 0 })
-    tween(titleLbl, 0.25, { TextTransparency = 0 })
-    tween(contentLbl, 0.25, { TextTransparency = 0 })
+    tween(card, SMOOTH, {
+        BackgroundTransparency = 0,
+        Position = UDim2.new(0, 0, 0, 0),
+    })
+    tween(titleLbl, SMOOTH, { TextTransparency = 0 })
+    tween(contentLbl, SMOOTH, { TextTransparency = 0 })
+    tween(accent, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Size = UDim2.new(0, 3, 1, 0),
+    })
 
     task.delay(opts.Duration or 4, function()
-        tween(card, 0.25, { BackgroundTransparency = 1 })
-        tween(titleLbl, 0.25, { TextTransparency = 1 })
-        tween(contentLbl, 0.25, { TextTransparency = 1 })
+        tween(card, SMOOTH, {
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, 40, 0, 0),
+        })
+        tween(titleLbl, SMOOTH, { TextTransparency = 1 })
+        tween(contentLbl, SMOOTH, { TextTransparency = 1 })
         task.wait(0.3)
         card:Destroy()
     end)
 
     return card
 end
+
+-- ============================================================
+-- Elements
+-- ============================================================
 
 local function makeToggle(parent, cfg, self)
     local state = cfg.CurrentValue == true
@@ -193,7 +247,7 @@ local function makeToggle(parent, cfg, self)
         Size = UDim2.new(1, 0, 0, 46), Parent = parent,
     })
     corner(self.Radius.Card, row)
-    stroke(self.Theme.Stroke, 1, 0.3, row)
+    local rowStroke = stroke(self.Theme.Stroke, 1, 0.3, row)
     padding(0, 14, 0, 14, row)
 
     new("TextLabel", {
@@ -233,14 +287,22 @@ local function makeToggle(parent, cfg, self)
 
     local function set(v, silent)
         state = v == true
-        tween(pill, 0.15, { BackgroundColor3 = state and self.Theme.Accent or self.Theme.SurfaceHigh })
-        tween(knob, 0.15, { Position = state and UDim2.new(1, -11, 0.5, 0) or UDim2.new(0, 11, 0.5, 0) })
+        tween(pill, SPRING, { BackgroundColor3 = state and self.Theme.Accent or self.Theme.SurfaceHigh })
+        tween(knob, TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            Position = state and UDim2.new(1, -11, 0.5, 0) or UDim2.new(0, 11, 0.5, 0),
+        })
         if not silent and cfg.Callback then task.spawn(cfg.Callback, state) end
     end
 
     pill.MouseButton1Click:Connect(function() set(not state) end)
-    pill.MouseEnter:Connect(function() tween(pillStroke, 0.15, { Color = self.Theme.StrokeHigh }) end)
-    pill.MouseLeave:Connect(function() tween(pillStroke, 0.15, { Color = self.Theme.Stroke }) end)
+    pill.MouseEnter:Connect(function()
+        tween(pillStroke, FAST, { Color = self.Theme.StrokeHigh })
+        tween(row, FAST, { BackgroundColor3 = self.Theme.SurfaceHigh })
+    end)
+    pill.MouseLeave:Connect(function()
+        tween(pillStroke, FAST, { Color = self.Theme.Stroke })
+        tween(row, FAST, { BackgroundColor3 = self.Theme.SurfaceAlt })
+    end)
 
     return { Set = set, Get = function() return state end, Instance = row }
 end
@@ -257,7 +319,7 @@ local function makeSlider(parent, cfg, self)
         Size = UDim2.new(1, 0, 0, 60), Parent = parent,
     })
     corner(self.Radius.Card, row)
-    stroke(self.Theme.Stroke, 1, 0.3, row)
+    local rowStroke = stroke(self.Theme.Stroke, 1, 0.3, row)
     padding(12, 14, 12, 14, row)
 
     new("TextLabel", {
@@ -286,17 +348,25 @@ local function makeSlider(parent, cfg, self)
     })
     corner(3, fill)
 
+    local glow = new("Frame", {
+        BackgroundColor3 = self.Theme.Accent, BorderSizePixel = 0,
+        Size = UDim2.new(0, 0, 0, 12), Position = UDim2.new(0, 0, 0.5, -6),
+        BackgroundTransparency = 0.6, Parent = bar,
+    })
+    corner(6, glow)
+
     local knob = new("Frame", {
         BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0, 0, 0.5, 0),
-        Size = UDim2.new(0, 14, 0, 14), Parent = bar,
+        Size = UDim2.new(0, 12, 0, 12), Parent = bar,
     })
-    corner(7, knob)
+    corner(6, knob)
     stroke(self.Theme.Accent, 2, 0, knob)
 
     local function refresh()
         local alpha = (value - min) / math.max(max - min, 0.0001)
         fill.Size = UDim2.new(alpha, 0, 1, 0)
+        glow.Size = UDim2.new(alpha, 0, 0, 12)
         knob.Position = UDim2.new(alpha, 0, 0.5, 0)
         valueLbl.Text = tostring(value) .. suffix
     end
@@ -315,6 +385,8 @@ local function makeSlider(parent, cfg, self)
         if input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
+            tween(knob, FAST, { Size = UDim2.new(0, 16, 0, 16) })
+            tween(glow, FAST, { BackgroundTransparency = 0.3 })
             updateFromMouse(input.Position.X)
         end
     end)
@@ -328,7 +400,20 @@ local function makeSlider(parent, cfg, self)
     UserInputService.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
+            if dragging then
+                dragging = false
+                tween(knob, SMOOTH, { Size = UDim2.new(0, 12, 0, 12) })
+                tween(glow, SMOOTH, { BackgroundTransparency = 0.6 })
+            end
+        end
+    end)
+
+    row.MouseEnter:Connect(function()
+        tween(rowStroke, FAST, { Color = self.Theme.StrokeHigh })
+    end)
+    row.MouseLeave:Connect(function()
+        if not dragging then
+            tween(rowStroke, FAST, { Color = self.Theme.Stroke })
         end
     end)
 
@@ -345,22 +430,35 @@ local function makeButton(parent, cfg, self)
     local btn = new("TextButton", {
         BackgroundColor3 = self.Theme.SurfaceAlt, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 40), AutoButtonColor = false,
-        Text = "", Parent = parent,
+        Text = "", ClipsDescendants = true, Parent = parent,
     })
     corner(self.Radius.Card, btn)
-    stroke(self.Theme.Stroke, 1, 0.3, btn)
+    local btnStroke = stroke(self.Theme.Stroke, 1, 0.3, btn)
 
     local label = new("TextLabel", {
         BackgroundTransparency = 1, Size = UDim2.new(1, -24, 1, 0),
         Position = UDim2.new(0, 12, 0, 0), Font = self.Fonts.Medium,
         Text = cfg.Name or "Button", TextColor3 = self.Theme.Text,
-        TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, Parent = btn,
+        TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 2, Parent = btn,
     })
 
-    btn.MouseEnter:Connect(function() tween(btn, 0.15, { BackgroundColor3 = self.Theme.SurfaceHigh }) end)
-    btn.MouseLeave:Connect(function() tween(btn, 0.15, { BackgroundColor3 = self.Theme.SurfaceAlt }) end)
-    btn.MouseButton1Down:Connect(function() tween(label, 0.08, { TextColor3 = self.Theme.Accent }) end)
-    btn.MouseButton1Up:Connect(function() tween(label, 0.15, { TextColor3 = self.Theme.Text }) end)
+    addRipple(btn, self.Theme.Accent)
+
+    btn.MouseEnter:Connect(function()
+        tween(btn, FAST, { BackgroundColor3 = self.Theme.SurfaceHigh })
+        tween(btnStroke, FAST, { Color = self.Theme.StrokeHigh })
+    end)
+    btn.MouseLeave:Connect(function()
+        tween(btn, FAST, { BackgroundColor3 = self.Theme.SurfaceAlt })
+        tween(btnStroke, FAST, { Color = self.Theme.Stroke })
+    end)
+    btn.MouseButton1Down:Connect(function()
+        tween(label, FAST, { TextColor3 = self.Theme.Accent })
+    end)
+    btn.MouseButton1Up:Connect(function()
+        tween(label, SMOOTH, { TextColor3 = self.Theme.Text })
+    end)
     btn.MouseButton1Click:Connect(function()
         if cfg.Callback then task.spawn(cfg.Callback) end
     end)
@@ -378,7 +476,7 @@ local function makeInput(parent, cfg, self)
         Size = UDim2.new(1, 0, 0, 56), Parent = parent,
     })
     corner(self.Radius.Card, row)
-    stroke(self.Theme.Stroke, 1, 0.3, row)
+    local rowStroke = stroke(self.Theme.Stroke, 1, 0.3, row)
     padding(10, 14, 10, 14, row)
 
     new("TextLabel", {
@@ -400,9 +498,15 @@ local function makeInput(parent, cfg, self)
     padding(0, 8, 0, 8, box)
 
     local boxStroke = stroke(self.Theme.Stroke, 1, 0.2, box)
-    box.Focused:Connect(function() tween(boxStroke, 0.15, { Color = self.Theme.Accent }) end)
+    box.Focused:Connect(function()
+        tween(boxStroke, FAST, { Color = self.Theme.Accent })
+        tween(box, FAST, { BackgroundColor3 = self.Theme.Surface })
+        tween(rowStroke, FAST, { Color = self.Theme.Accent })
+    end)
     box.FocusLost:Connect(function(enter)
-        tween(boxStroke, 0.15, { Color = self.Theme.Stroke })
+        tween(boxStroke, FAST, { Color = self.Theme.Stroke })
+        tween(box, FAST, { BackgroundColor3 = self.Theme.SurfaceHigh })
+        tween(rowStroke, FAST, { Color = self.Theme.Stroke })
         if cfg.Callback then task.spawn(cfg.Callback, box.Text, enter) end
     end)
 
@@ -479,11 +583,20 @@ local function makeDropdown(parent, cfg, self)
         TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, Parent = btn,
     })
 
-    local arrow = new("TextLabel", {
+    -- animated caret (two lines forming a chevron)
+    local caretHolder = new("Frame", {
         BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0.5),
-        Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.new(0, 14, 0, 14),
-        Font = self.Fonts.Bold, Text = "v", TextColor3 = self.Theme.TextMuted,
-        TextSize = 12, Parent = btn,
+        Position = UDim2.new(1, -8, 0.5, 0),
+        Size = UDim2.new(0, 12, 0, 12),
+        Rotation = 0, Parent = btn,
+    })
+
+    local chevron = new("TextLabel", {
+        BackgroundTransparency = 1, Size = UDim2.new(1, 0, 1, 0),
+        Font = self.Fonts.Bold, Text = "v",
+        TextColor3 = self.Theme.TextMuted, TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center, Parent = caretHolder,
     })
 
     local list = new("Frame", {
@@ -516,16 +629,17 @@ local function makeDropdown(parent, cfg, self)
             padding(0, 10, 0, 10, optBtn)
 
             optBtn.MouseEnter:Connect(function()
-                tween(optBtn, 0.1, { BackgroundColor3 = self.Theme.SurfaceHigh, TextColor3 = self.Theme.Text })
+                tween(optBtn, FAST, { BackgroundColor3 = self.Theme.SurfaceHigh, TextColor3 = self.Theme.Text })
             end)
             optBtn.MouseLeave:Connect(function()
-                tween(optBtn, 0.1, { BackgroundColor3 = self.Theme.Surface, TextColor3 = self.Theme.TextMuted })
+                tween(optBtn, FAST, { BackgroundColor3 = self.Theme.Surface, TextColor3 = self.Theme.TextMuted })
             end)
             optBtn.MouseButton1Click:Connect(function()
                 value = opt
                 valueText.Text = tostring(opt)
                 list.Visible = false
-                list.Size = UDim2.new(1, 0, 0, 0)
+                tween(list, SMOOTH, { Size = UDim2.new(1, 0, 0, 0) })
+                tween(caretHolder, SMOOTH, { Rotation = 0 })
                 open = false
                 if cfg.Callback then task.spawn(cfg.Callback, opt) end
             end)
@@ -537,9 +651,13 @@ local function makeDropdown(parent, cfg, self)
         open = not open
         list.Visible = true
         local h = math.min(#options * 28, 168)
-        tween(list, 0.18, { Size = open and UDim2.new(1, 0, 0, h) or UDim2.new(1, 0, 0, 0) })
-        tween(arrow, 0.18, { Rotation = open and 180 or 0 })
-        tween(rowStroke, 0.15, { Color = open and self.Theme.Accent or self.Theme.Stroke })
+        tween(list, TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = open and UDim2.new(1, 0, 0, h) or UDim2.new(1, 0, 0, 0),
+        })
+        tween(caretHolder, SMOOTH, { Rotation = open and 180 or 0 })
+        tween(chevron, FAST, { TextColor3 = open and self.Theme.Accent or self.Theme.TextMuted })
+        tween(rowStroke, FAST, { Color = open and self.Theme.Accent or self.Theme.Stroke })
+        tween(btn, FAST, { BackgroundColor3 = open and self.Theme.Surface or self.Theme.SurfaceHigh })
     end)
 
     refreshOptions(options)
@@ -654,23 +772,32 @@ local function makeTab(window, cfg, self)
     local function select()
         for _, t in ipairs(window._tabs) do
             t._content.Visible = false
-            tween(t._btn, 0.15, { BackgroundColor3 = self.Theme.Surface })
-            tween(t._accent, 0.15, { BackgroundTransparency = 1 })
-            tween(t._label, 0.15, { TextColor3 = self.Theme.TextMuted })
+            tween(t._btn, SMOOTH, { BackgroundColor3 = self.Theme.Surface })
+            tween(t._accent, SMOOTH, { BackgroundTransparency = 1, Size = UDim2.new(0, 3, 0.4, 0) })
+            tween(t._label, SMOOTH, { TextColor3 = self.Theme.TextMuted })
         end
         content.Visible = true
-        tween(tabBtn, 0.15, { BackgroundColor3 = self.Theme.SurfaceHigh })
-        tween(accent, 0.15, { BackgroundTransparency = 0 })
-        tween(tabLabel, 0.15, { TextColor3 = self.Theme.Text })
+        tween(tabBtn, SMOOTH, { BackgroundColor3 = self.Theme.SurfaceHigh })
+        tween(accent, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+            BackgroundTransparency = 0,
+            Size = UDim2.new(0, 3, 0.65, 0),
+        })
+        tween(tabLabel, SMOOTH, { TextColor3 = self.Theme.Text })
         window._currentTab = tab
     end
 
     tabBtn.MouseButton1Click:Connect(select)
     tabBtn.MouseEnter:Connect(function()
-        if window._currentTab ~= tab then tween(tabBtn, 0.12, { BackgroundColor3 = self.Theme.SurfaceAlt }) end
+        if window._currentTab ~= tab then
+            tween(tabBtn, FAST, { BackgroundColor3 = self.Theme.SurfaceAlt })
+            tween(tabLabel, FAST, { TextColor3 = self.Theme.Text })
+        end
     end)
     tabBtn.MouseLeave:Connect(function()
-        if window._currentTab ~= tab then tween(tabBtn, 0.12, { BackgroundColor3 = self.Theme.Surface }) end
+        if window._currentTab ~= tab then
+            tween(tabBtn, FAST, { BackgroundColor3 = self.Theme.Surface })
+            tween(tabLabel, FAST, { TextColor3 = self.Theme.TextMuted })
+        end
     end)
 
     function tab:Select() select() end
@@ -719,9 +846,9 @@ function Azure:CreateWindow(cfg)
 
     local shadow = new("Frame", {
         Name = "Shadow", BackgroundColor3 = Color3.new(0, 0, 0),
-        BackgroundTransparency = 0.75, BorderSizePixel = 0,
+        BackgroundTransparency = 0.7, BorderSizePixel = 0,
         AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
-        Size = UDim2.new(0, width + 6, 0, height + 6),
+        Size = UDim2.new(0, width + 8, 0, height + 8),
         ZIndex = 0, Parent = gui,
     })
     corner(self.Radius.Window, shadow)
@@ -733,16 +860,26 @@ function Azure:CreateWindow(cfg)
         ClipsDescendants = true, Parent = gui,
     })
     corner(self.Radius.Window, main)
-    stroke(self.Theme.Stroke, 1, 0.2, main)
+    local mainStroke = stroke(self.Theme.Stroke, 1, 0.2, main)
+
+    -- opening animation: fade + slight scale
+    main.BackgroundTransparency = 1
+    shadow.BackgroundTransparency = 1
+    tween(main, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        BackgroundTransparency = 0,
+    })
+    tween(shadow, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        BackgroundTransparency = 0.7,
+    })
 
     local header = new("Frame", {
         Name = "Header", BackgroundColor3 = self.Theme.Surface,
         BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 42), Parent = main,
     })
-    new("Frame", {
+    local headerAccent = new("Frame", {
         BackgroundColor3 = self.Theme.Accent, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1),
-        BackgroundTransparency = 0.6, Parent = header,
+        BackgroundTransparency = 0.5, Parent = header,
     })
     new("TextLabel", {
         BackgroundTransparency = 1, Position = UDim2.new(0, 16, 0, 0),
@@ -760,10 +897,10 @@ function Azure:CreateWindow(cfg)
     })
     corner(6, close)
     close.MouseEnter:Connect(function()
-        tween(close, 0.15, { BackgroundColor3 = self.Theme.Error, TextColor3 = Color3.new(1, 1, 1) })
+        tween(close, FAST, { BackgroundColor3 = self.Theme.Error, TextColor3 = Color3.new(1, 1, 1) })
     end)
     close.MouseLeave:Connect(function()
-        tween(close, 0.15, { BackgroundColor3 = self.Theme.SurfaceHigh, TextColor3 = self.Theme.TextMuted })
+        tween(close, FAST, { BackgroundColor3 = self.Theme.SurfaceHigh, TextColor3 = self.Theme.TextMuted })
     end)
 
     local sidebar = new("Frame", {
@@ -792,12 +929,14 @@ function Azure:CreateWindow(cfg)
         _tabs = {}, _currentTab = nil, Title = title,
     }
 
-    makeDraggable(main, header)
+    makeDraggable(main, header,
+        function() tween(mainStroke, FAST, { Color = self.Theme.StrokeHigh }) end,
+        function() tween(mainStroke, SMOOTH, { Color = self.Theme.Stroke }) end)
 
     close.MouseButton1Click:Connect(function()
-        tween(main, 0.2, { BackgroundTransparency = 1 })
-        tween(shadow, 0.2, { BackgroundTransparency = 1 })
-        task.wait(0.22)
+        tween(main, SMOOTH, { BackgroundTransparency = 1, Size = UDim2.new(0, width - 20, 0, height - 20) })
+        tween(shadow, SMOOTH, { BackgroundTransparency = 1 })
+        task.wait(0.24)
         gui:Destroy()
     end)
 
