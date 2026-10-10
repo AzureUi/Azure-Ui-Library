@@ -1,5 +1,5 @@
 -- ============================================================
--- Azure UI  v4.0
+-- Azure UI  v5.0
 -- by Noxi
 --
 -- Quick start (bottom of file has a full example):
@@ -15,32 +15,104 @@ local GuiService       = game:GetService("GuiService")
 local Players          = game:GetService("Players")
 local CoreGui          = game:GetService("CoreGui")
 local Workspace        = game:GetService("Workspace")
+local RunService       = game:GetService("RunService")
 local LocalPlayer      = Players.LocalPlayer
 
 local Azure = {}
 Azure.__index = Azure
-Azure.Version = "4.0"
+Azure.Version = "5.0"
 
 -- ============================================================
 -- Theme
 -- ============================================================
 
-Azure.Theme = {
-    Background  = Color3.fromRGB(14, 14, 20),
-    Surface     = Color3.fromRGB(20, 20, 28),
-    SurfaceAlt  = Color3.fromRGB(27, 27, 37),
-    SurfaceHigh = Color3.fromRGB(35, 35, 47),
-    Stroke      = Color3.fromRGB(42, 42, 58),
-    StrokeHigh  = Color3.fromRGB(95, 95, 140),
-    Accent      = Color3.fromRGB(145, 125, 255),
-    AccentDim   = Color3.fromRGB(90, 75, 180),
-    Text        = Color3.fromRGB(238, 236, 250),
-    TextMuted   = Color3.fromRGB(138, 136, 160),
-    TextDim     = Color3.fromRGB(92, 92, 112),
+Azure.Themes = {}
+
+local function defineTheme(name, overrides, base)
+    local t = {}
+    for k, v in pairs(base or {}) do t[k] = v end
+    for k, v in pairs(overrides) do t[k] = v end
+    Azure.Themes[name] = t
+    return t
+end
+
+local violet = defineTheme("Violet", {
+    Background  = Color3.fromRGB(11, 11, 17),
+    Surface     = Color3.fromRGB(16, 16, 24),
+    SurfaceAlt  = Color3.fromRGB(23, 23, 33),
+    SurfaceHigh = Color3.fromRGB(32, 32, 45),
+    Stroke      = Color3.fromRGB(40, 40, 57),
+    StrokeHigh  = Color3.fromRGB(98, 96, 150),
+    Accent      = Color3.fromRGB(150, 130, 255),
+    AccentDim   = Color3.fromRGB(92, 76, 184),
+    Text        = Color3.fromRGB(240, 238, 252),
+    TextMuted   = Color3.fromRGB(140, 138, 164),
+    TextDim     = Color3.fromRGB(92, 92, 114),
     Success     = Color3.fromRGB(120, 220, 160),
     Warning     = Color3.fromRGB(240, 190, 110),
     Error       = Color3.fromRGB(240, 120, 120),
-}
+    NebulaA     = Color3.fromRGB(110, 70, 255),
+    NebulaB     = Color3.fromRGB(50, 130, 255),
+    NebulaC     = Color3.fromRGB(210, 80, 190),
+})
+
+defineTheme("Ocean", {
+    Background  = Color3.fromRGB(9, 13, 19),
+    Surface     = Color3.fromRGB(14, 19, 27),
+    SurfaceAlt  = Color3.fromRGB(21, 28, 38),
+    SurfaceHigh = Color3.fromRGB(30, 40, 54),
+    Stroke      = Color3.fromRGB(36, 48, 64),
+    StrokeHigh  = Color3.fromRGB(80, 120, 160),
+    Accent      = Color3.fromRGB(90, 175, 255),
+    AccentDim   = Color3.fromRGB(45, 110, 185),
+    NebulaA     = Color3.fromRGB(30, 120, 255),
+    NebulaB     = Color3.fromRGB(0, 190, 200),
+    NebulaC     = Color3.fromRGB(110, 80, 255),
+}, violet)
+
+defineTheme("Rose", {
+    Background  = Color3.fromRGB(16, 10, 14),
+    Surface     = Color3.fromRGB(22, 15, 20),
+    SurfaceAlt  = Color3.fromRGB(31, 22, 29),
+    SurfaceHigh = Color3.fromRGB(43, 31, 40),
+    Stroke      = Color3.fromRGB(56, 41, 52),
+    StrokeHigh  = Color3.fromRGB(150, 95, 120),
+    Accent      = Color3.fromRGB(255, 125, 175),
+    AccentDim   = Color3.fromRGB(180, 75, 115),
+    NebulaA     = Color3.fromRGB(255, 60, 130),
+    NebulaB     = Color3.fromRGB(170, 60, 255),
+    NebulaC     = Color3.fromRGB(255, 140, 80),
+}, violet)
+
+defineTheme("Emerald", {
+    Background  = Color3.fromRGB(9, 15, 13),
+    Surface     = Color3.fromRGB(14, 22, 19),
+    SurfaceAlt  = Color3.fromRGB(20, 31, 27),
+    SurfaceHigh = Color3.fromRGB(29, 44, 38),
+    Stroke      = Color3.fromRGB(36, 56, 48),
+    StrokeHigh  = Color3.fromRGB(80, 140, 115),
+    Accent      = Color3.fromRGB(95, 228, 165),
+    AccentDim   = Color3.fromRGB(50, 150, 105),
+    NebulaA     = Color3.fromRGB(30, 200, 120),
+    NebulaB     = Color3.fromRGB(30, 160, 220),
+    NebulaC     = Color3.fromRGB(140, 230, 80),
+}, violet)
+
+-- live theme table; elements read from it when they are created
+Azure.Theme = {}
+for k, v in pairs(violet) do Azure.Theme[k] = v end
+
+-- Azure:SetTheme("Ocean")  or  Azure:SetTheme({ Accent = Color3.fromRGB(...) })
+-- Call it BEFORE creating a window.
+function Azure:SetTheme(theme)
+    local src = type(theme) == "string" and Azure.Themes[theme] or theme
+    if type(src) ~= "table" then return Azure end
+    for k, v in pairs(src) do Azure.Theme[k] = v end
+    return Azure
+end
+
+Azure.CardAlpha = 0.12        -- element card transparency (shows the nebula through)
+Azure.NebulaIntensity = 0.025 -- per-layer glow strength; raise for a brighter nebula
 
 Azure.Fonts = {
     Regular = Enum.Font.Gotham,
@@ -140,15 +212,16 @@ local function isMove(input)
         or input.UserInputType == Enum.UserInputType.Touch
 end
 
--- Smooth, screen-clamped dragging. Global connections go into `maid`.
-local function makeDraggable(frame, handle, maid, onStart, onEnd)
-    local dragging, startMouse, startPos = false, nil, nil
+-- Inertial, screen-clamped dragging. Returns { Cancel = fn }.
+local function makeDraggable(frame, handle, maid, getSize, onStart, onEnd)
+    local dragging, startMouse, startPos, target = false, nil, nil, nil
 
     maid:Give(handle.InputBegan:Connect(function(input)
         if isClick(input) then
             dragging = true
             startMouse = input.Position
             startPos = frame.Position
+            target = startPos
             if onStart then onStart() end
         end
     end))
@@ -156,12 +229,16 @@ local function makeDraggable(frame, handle, maid, onStart, onEnd)
     maid:Give(UserInputService.InputChanged:Connect(function(input)
         if not dragging or not isMove(input) then return end
         local d = input.Position - startMouse
-        local vp = Workspace.CurrentCamera and Workspace.CurrentCamera.ViewportSize or Vector2.new(1920, 1080)
-        local x = math.clamp(startPos.X.Offset + d.X, -vp.X * startPos.X.Scale, vp.X * (1 - startPos.X.Scale))
-        local y = math.clamp(startPos.Y.Offset + d.Y, -vp.Y * startPos.Y.Scale, vp.Y * (1 - startPos.Y.Scale))
-        TweenService:Create(frame, TweenInfo.new(0.08, Enum.EasingStyle.Quad, O), {
-            Position = UDim2.new(startPos.X.Scale, x, startPos.Y.Scale, y),
-        }):Play()
+        local cam = Workspace.CurrentCamera
+        local vp = cam and cam.ViewportSize or Vector2.new(1920, 1080)
+        local size = getSize()
+        local left = vp.X * startPos.X.Scale + startPos.X.Offset + d.X
+        local top = vp.Y * startPos.Y.Scale + startPos.Y.Offset + d.Y
+        left = math.clamp(left, -(size.X - 120), vp.X - 120)
+        top = math.clamp(top, 0, vp.Y - 44)
+        target = UDim2.new(
+            startPos.X.Scale, left - vp.X * startPos.X.Scale,
+            startPos.Y.Scale, top - vp.Y * startPos.Y.Scale)
     end))
 
     maid:Give(UserInputService.InputEnded:Connect(function(input)
@@ -170,6 +247,23 @@ local function makeDraggable(frame, handle, maid, onStart, onEnd)
             if onEnd then onEnd() end
         end
     end))
+
+    -- critically-damped follow, so the window glides instead of snapping
+    maid:Give(RunService.RenderStepped:Connect(function(dt)
+        if not target then return end
+        local cur = frame.Position
+        local a = 1 - math.exp(-dt * 24)
+        local nx = cur.X.Offset + (target.X.Offset - cur.X.Offset) * a
+        local ny = cur.Y.Offset + (target.Y.Offset - cur.Y.Offset) * a
+        if not dragging and math.abs(target.X.Offset - nx) < 0.3 and math.abs(target.Y.Offset - ny) < 0.3 then
+            frame.Position = target
+            target = nil
+        else
+            frame.Position = UDim2.new(target.X.Scale, nx, target.Y.Scale, ny)
+        end
+    end))
+
+    return { Cancel = function() target = nil; dragging = false end }
 end
 
 -- Click ripple. `host` must clip (use a CanvasGroup so corners clip too).
@@ -389,6 +483,8 @@ end
 -- ============================================================
 
 local notifHolder
+local notifCounter = 0
+local function nextNotifOrder() notifCounter += 1; return notifCounter end
 local function getNotifHolder()
     if notifHolder and notifHolder.Parent then return notifHolder end
     local gui = new("ScreenGui", {
@@ -424,10 +520,10 @@ function Azure:Notify(opts)
     -- wrapper owns the layout slot, card animates freely inside it
     local wrapper = new("Frame", {
         BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0),
-        LayoutOrder = os.clock() * 1000 // 1, Parent = holder,
+        LayoutOrder = nextNotifOrder(), Parent = holder,
     })
     local card = new("CanvasGroup", {
-        BackgroundColor3 = T.SurfaceAlt, BorderSizePixel = 0,
+        BackgroundColor3 = T.SurfaceAlt, BackgroundTransparency = Azure.CardAlpha, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 64), Position = UDim2.new(0, 60, 0, 0),
         GroupTransparency = 1, Parent = wrapper,
     })
@@ -552,7 +648,7 @@ end
 local function makeParagraph(parent, cfg, api)
     local T = api.Theme
     local card = new("Frame", {
-        BackgroundColor3 = T.SurfaceAlt, BorderSizePixel = 0,
+        BackgroundColor3 = T.SurfaceAlt, BackgroundTransparency = Azure.CardAlpha, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = parent,
     })
     corner(api.Radius.Card, card)
@@ -583,7 +679,7 @@ end
 local function makeButton(parent, cfg, api)
     local T = api.Theme
     local row = new("CanvasGroup", {
-        BackgroundColor3 = T.SurfaceAlt, BorderSizePixel = 0,
+        BackgroundColor3 = T.SurfaceAlt, BackgroundTransparency = Azure.CardAlpha, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 40), Parent = parent,
     })
     corner(api.Radius.Card, row)
@@ -636,7 +732,7 @@ local function makeToggle(parent, cfg, api)
     local state = cfg.CurrentValue == true
 
     local row = new("TextButton", {
-        BackgroundColor3 = T.SurfaceAlt, BorderSizePixel = 0,
+        BackgroundColor3 = T.SurfaceAlt, BackgroundTransparency = Azure.CardAlpha, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, cfg.Desc and 54 or 44),
         Text = "", AutoButtonColor = false, Parent = parent,
     })
@@ -714,7 +810,7 @@ local function makeSlider(parent, cfg, api, maid)
     local value = snap(cfg.CurrentValue or min)
 
     local row = new("Frame", {
-        BackgroundColor3 = T.SurfaceAlt, BorderSizePixel = 0,
+        BackgroundColor3 = T.SurfaceAlt, BackgroundTransparency = Azure.CardAlpha, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 62), Parent = parent,
     })
     corner(api.Radius.Card, row)
@@ -834,7 +930,7 @@ end
 local function makeInput(parent, cfg, api)
     local T = api.Theme
     local row = new("Frame", {
-        BackgroundColor3 = T.SurfaceAlt, BorderSizePixel = 0,
+        BackgroundColor3 = T.SurfaceAlt, BackgroundTransparency = Azure.CardAlpha, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 62), Parent = parent,
     })
     corner(api.Radius.Card, row)
@@ -896,7 +992,7 @@ local function makeDropdown(parent, cfg, api)
     local ITEM = 28
 
     local row = new("Frame", {
-        BackgroundColor3 = T.SurfaceAlt, BorderSizePixel = 0,
+        BackgroundColor3 = T.SurfaceAlt, BackgroundTransparency = Azure.CardAlpha, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, HEADER), ClipsDescendants = true, Parent = parent,
     })
     corner(api.Radius.Card, row)
@@ -1017,7 +1113,7 @@ local function makeKeybind(parent, cfg, api, maid)
     local listening = false
 
     local row = new("Frame", {
-        BackgroundColor3 = T.SurfaceAlt, BorderSizePixel = 0,
+        BackgroundColor3 = T.SurfaceAlt, BackgroundTransparency = Azure.CardAlpha, BorderSizePixel = 0,
         Size = UDim2.new(1, 0, 0, 44), Parent = parent,
     })
     corner(api.Radius.Card, row)
@@ -1185,31 +1281,134 @@ local function makeTab(window, cfg, api)
 end
 
 -- ============================================================
+-- Nebula background
+-- Soft drifting colour clouds (stacked translucent circles) + twinkling stars.
+-- ============================================================
+
+local function makeNebula(parent, T, maid)
+    local holder = new("Frame", {
+        Name = "Nebula", BackgroundTransparency = 1, ClipsDescendants = true,
+        Size = UDim2.fromScale(1, 1), ZIndex = 0, Parent = parent,
+    })
+
+    local LAYERS = 14
+    local layerTransparency = 1 - Azure.NebulaIntensity
+    local SINE = Enum.EasingStyle.Sine
+    local INOUT = Enum.EasingDirection.InOut
+
+    local blobs = {
+        { T.NebulaA, Vector2.new(0.12, 0.18), 460, Vector2.new(0.10, 0.08), 12 },
+        { T.NebulaB, Vector2.new(0.88, 0.82), 520, Vector2.new(-0.10, -0.07), 15 },
+        { T.NebulaC, Vector2.new(0.62, 0.04), 340, Vector2.new(-0.08, 0.12), 10 },
+    }
+
+    for _, b in ipairs(blobs) do
+        local color, pos, px, drift, period = b[1], b[2], b[3], b[4], b[5]
+
+        local blob = new("Frame", {
+            BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.fromScale(pos.X, pos.Y), Size = UDim2.fromOffset(px, px),
+            ZIndex = 0, Parent = holder,
+        })
+        for i = 1, LAYERS do
+            local s = ((LAYERS - i + 1) / LAYERS) ^ 1.4
+            local layer = new("Frame", {
+                BackgroundColor3 = color, BackgroundTransparency = layerTransparency,
+                BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5),
+                Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(s, s),
+                ZIndex = 0, Parent = blob,
+            })
+            new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = layer })
+        end
+
+        local scale = new("UIScale", { Parent = blob })
+        local move = TweenService:Create(blob,
+            TweenInfo.new(period, SINE, INOUT, -1, true),
+            { Position = UDim2.fromScale(pos.X + drift.X, pos.Y + drift.Y) })
+        local breathe = TweenService:Create(scale,
+            TweenInfo.new(period * 0.7, SINE, INOUT, -1, true), { Scale = 1.15 })
+        move:Play(); breathe:Play()
+        maid:Give(move); maid:Give(breathe)
+    end
+
+    local rng = Random.new(7)
+    for _ = 1, 26 do
+        local s = rng:NextInteger(1, 2)
+        local star = new("Frame", {
+            BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0,
+            BackgroundTransparency = rng:NextNumber(0.55, 0.85),
+            Position = UDim2.fromScale(rng:NextNumber(), rng:NextNumber()),
+            Size = UDim2.fromOffset(s, s), ZIndex = 0, Parent = holder,
+        })
+        new("UICorner", { CornerRadius = UDim.new(0.5, 0), Parent = star })
+        local twinkle = TweenService:Create(star,
+            TweenInfo.new(rng:NextNumber(1.6, 3.6), SINE, INOUT, -1, true, rng:NextNumber(0, 2)),
+            { BackgroundTransparency = 0.97 })
+        twinkle:Play()
+        maid:Give(twinkle)
+    end
+
+    return holder
+end
+
+-- ============================================================
 -- Window
 -- ============================================================
 
+--[[
+Azure:CreateWindow({
+    Title     = "Azure",
+    Width     = 580,  Height = 440,
+    MinWidth  = 420,  MinHeight = 320,
+    ToggleKey = Enum.KeyCode.Insert,   -- default is Insert; false disables the key
+    Theme     = "Violet",              -- "Violet" | "Ocean" | "Rose" | "Emerald" | custom table
+    Nebula    = true,                  -- animated nebula background
+    Resizable = true,                  -- drag any corner to resize
+    Loading   = true,                  -- true | false | { Title, Subtitle, Steps, Duration }
+})
+]]
 function Azure:CreateWindow(cfg)
     cfg = cfg or {}
-    local api    = self
-    local T      = self.Theme
-    local width  = cfg.Width  or 560
-    local height = cfg.Height or 460
-    local title  = cfg.Title  or "Azure"
-    local maid   = newMaid()
+    if cfg.Theme then Azure:SetTheme(cfg.Theme) end
+
+    local api   = Azure
+    local T     = Azure.Theme
+    local title = cfg.Title or "Azure"
+    local maid  = newMaid()
+
+    local cam = Workspace.CurrentCamera
+    local vp0 = cam and cam.ViewportSize or Vector2.new(1280, 720)
+    local minW = math.min(cfg.MinWidth or 420, vp0.X - 20)
+    local minH = math.min(cfg.MinHeight or 320, vp0.Y - 20)
+    local size = Vector2.new(
+        math.clamp(cfg.Width or 580, minW, math.max(minW, vp0.X - 40)),
+        math.clamp(cfg.Height or 440, minH, math.max(minH, vp0.Y - 40)))
+
+    -- toggle key: Insert unless the script picks another one (false = no key)
+    local toggleKey = cfg.ToggleKey
+    if toggleKey == nil then toggleKey = Enum.KeyCode.Insert end
+    if toggleKey == false then toggleKey = nil end
+
+    local collapsed = false
+    local sizeTween
 
     local gui = new("ScreenGui", {
         Name = "AzureUI", ResetOnSpawn = false,
-        IgnoreGuiInset = true, DisplayOrder = 9999, Enabled = true,
+        IgnoreGuiInset = true, DisplayOrder = 9999,
     })
     safeParent(gui)
 
-    -- Root holds shadow + window so they move, scale and collapse together
+    -- root owns position + size; body is centred inside it so UIScale pops from the middle
     local root = new("Frame", {
         Name = "Root", BackgroundTransparency = 1,
-        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5),
-        Size = UDim2.fromOffset(width, height), Visible = false, Parent = gui,
+        Position = UDim2.new(0.5, -size.X / 2, 0.5, -size.Y / 2),
+        Size = UDim2.fromOffset(size.X, size.Y), Visible = false, Parent = gui,
     })
-    local rootScale = new("UIScale", { Scale = 0.9, Parent = root })
+    local body = new("Frame", {
+        Name = "Body", BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), Parent = root,
+    })
+    local bodyScale = new("UIScale", { Scale = 0.9, Parent = body })
 
     local shadow = new("ImageLabel", {
         Name = "Shadow", BackgroundTransparency = 1,
@@ -1217,20 +1416,24 @@ function Azure:CreateWindow(cfg)
         Size = UDim2.new(1, 56, 1, 56), Image = "rbxassetid://6014261993",
         ImageColor3 = Color3.new(0, 0, 0), ImageTransparency = 1,
         ScaleType = Enum.ScaleType.Slice, SliceCenter = Rect.new(49, 49, 450, 450),
-        ZIndex = 0, Parent = root,
+        ZIndex = 0, Parent = body,
     })
 
     local main = new("CanvasGroup", {
         Name = "Main", BackgroundColor3 = T.Background, BorderSizePixel = 0,
-        Size = UDim2.fromScale(1, 1), GroupTransparency = 1, Parent = root,
+        Size = UDim2.fromScale(1, 1), GroupTransparency = 1, Parent = body,
     })
-    corner(self.Radius.Window, main)
+    corner(Azure.Radius.Window, main)
     local mainStroke = stroke(T.Stroke, 1, 0.2, main)
 
-    -- Header
+    if cfg.Nebula ~= false then
+        makeNebula(main, T, maid)
+    end
+
+    -- Header -------------------------------------------------
     local header = new("Frame", {
-        Name = "Header", BackgroundColor3 = T.Surface, BorderSizePixel = 0,
-        Size = UDim2.new(1, 0, 0, 44), Parent = main,
+        Name = "Header", BackgroundColor3 = T.Surface, BackgroundTransparency = 0.25,
+        BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 44), Parent = main,
     })
     local line = new("Frame", {
         BackgroundColor3 = T.Accent, BorderSizePixel = 0,
@@ -1244,23 +1447,26 @@ function Azure:CreateWindow(cfg)
         }),
         Offset = Vector2.new(-1, 0), Parent = line,
     })
-    TweenService:Create(lineGrad,
+    local lineTween = TweenService:Create(lineGrad,
         TweenInfo.new(2.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-        { Offset = Vector2.new(1, 0) }):Play()
+        { Offset = Vector2.new(1, 0) })
+    lineTween:Play(); maid:Give(lineTween)
 
     local dotLogo = new("Frame", {
         BackgroundColor3 = T.Accent, BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 0.5),
         Position = UDim2.new(0, 16, 0.5, 0), Size = UDim2.fromOffset(8, 8), Parent = header,
     })
     corner(4, dotLogo)
-    TweenService:Create(dotLogo,
+    local dotTween = TweenService:Create(dotLogo,
         TweenInfo.new(1.4, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-        { BackgroundTransparency = 0.6 }):Play()
+        { BackgroundTransparency = 0.6 })
+    dotTween:Play(); maid:Give(dotTween)
 
     local titleLbl = new("TextLabel", {
         BackgroundTransparency = 1, Position = UDim2.new(0, 32, 0, 0),
-        Size = UDim2.new(0.6, 0, 1, 0), Font = self.Fonts.Bold, Text = title,
-        TextColor3 = T.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, Parent = header,
+        Size = UDim2.new(0.6, 0, 1, 0), Font = Azure.Fonts.Bold, Text = title,
+        TextColor3 = T.Text, TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left,
+        Parent = header,
     })
 
     local function headerButton(text, xOffset, hoverColor)
@@ -1268,7 +1474,7 @@ function Azure:CreateWindow(cfg)
             BackgroundColor3 = T.SurfaceHigh, BorderSizePixel = 0,
             AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, xOffset, 0.5, 0),
             Size = UDim2.fromOffset(24, 24), AutoButtonColor = false,
-            Text = text, Font = self.Fonts.Bold, TextColor3 = T.TextMuted, TextSize = 14,
+            Text = text, Font = Azure.Fonts.Bold, TextColor3 = T.TextMuted, TextSize = 14,
             Parent = header,
         })
         corner(6, b)
@@ -1281,13 +1487,14 @@ function Azure:CreateWindow(cfg)
         end)
         return b
     end
-    local closeBtn = headerButton("x", -10, T.Error)
-    local minBtn   = headerButton("-", -40, T.AccentDim)
+    local closeBtn = headerButton("x", -16, T.Error)
+    local minBtn   = headerButton("-", -46, T.AccentDim)
 
-    -- Sidebar
+    -- Sidebar ------------------------------------------------
     local sidebar = new("Frame", {
-        Name = "Sidebar", BackgroundColor3 = T.Surface, BorderSizePixel = 0,
-        Position = UDim2.new(0, 0, 0, 44), Size = UDim2.new(0, 150, 1, -44), Parent = main,
+        Name = "Sidebar", BackgroundColor3 = T.Surface, BackgroundTransparency = 0.35,
+        BorderSizePixel = 0, Position = UDim2.new(0, 0, 0, 44),
+        Size = UDim2.new(0, 150, 1, -44), Parent = main,
     })
     new("Frame", {
         BackgroundColor3 = T.Stroke, BackgroundTransparency = 0.4, BorderSizePixel = 0,
@@ -1296,10 +1503,10 @@ function Azure:CreateWindow(cfg)
     })
 
     local highlight = new("Frame", {
-        Name = "Highlight", BackgroundColor3 = T.SurfaceHigh, BorderSizePixel = 0,
-        Size = UDim2.new(1, -16, 0, TAB_H), Visible = false, Parent = sidebar,
+        Name = "Highlight", BackgroundColor3 = T.SurfaceHigh, BackgroundTransparency = 0.15,
+        BorderSizePixel = 0, Size = UDim2.new(1, -16, 0, TAB_H), Visible = false, Parent = sidebar,
     })
-    corner(self.Radius.Small, highlight)
+    corner(Azure.Radius.Small, highlight)
     local hlBar = new("Frame", {
         BackgroundColor3 = T.Accent, BorderSizePixel = 0, AnchorPoint = Vector2.new(0, 0.5),
         Position = UDim2.new(0, 0, 0.5, 0), Size = UDim2.new(0, 3, 0.55, 0), Parent = highlight,
@@ -1308,17 +1515,29 @@ function Azure:CreateWindow(cfg)
 
     local sidebarList = new("Frame", {
         BackgroundTransparency = 1, Position = UDim2.new(0, 8, 0, 8),
-        Size = UDim2.new(1, -16, 1, -60), Parent = sidebar,
+        Size = UDim2.new(1, -16, 1, -68), Parent = sidebar,
     })
-    new("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, TAB_GAP), Parent = sidebarList })
+    new("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, TAB_GAP), Parent = sidebarList,
+    })
 
-    local footer = new("TextLabel", {
+    local hintLbl = new("TextLabel", {
+        BackgroundTransparency = 1, AnchorPoint = Vector2.new(0, 1),
+        Position = UDim2.new(0, 16, 1, -28), Size = UDim2.new(1, -32, 0, 14),
+        Font = Azure.Fonts.Regular, Text = "", TextColor3 = T.TextDim, TextSize = 11,
+        TextXAlignment = Enum.TextXAlignment.Left, Parent = sidebar,
+    })
+    new("TextLabel", {
         BackgroundTransparency = 1, AnchorPoint = Vector2.new(0, 1),
         Position = UDim2.new(0, 16, 1, -10), Size = UDim2.new(1, -32, 0, 14),
-        Font = self.Fonts.Regular, Text = LocalPlayer and LocalPlayer.DisplayName or "",
-        TextColor3 = T.TextDim, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
+        Font = Azure.Fonts.Medium, Text = LocalPlayer and LocalPlayer.DisplayName or "",
+        TextColor3 = T.TextMuted, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd, Parent = sidebar,
     })
+    local function refreshHint()
+        hintLbl.Text = toggleKey and (toggleKey.Name .. " to hide") or ""
+    end
+    refreshHint()
 
     local contentHolder = new("Frame", {
         Name = "Content", BackgroundTransparency = 1, ClipsDescendants = true,
@@ -1328,21 +1547,22 @@ function Azure:CreateWindow(cfg)
     local window = {
         _gui = gui, _root = root, _main = main, _maid = maid,
         _sidebarList = sidebarList, _contentHolder = contentHolder, _highlight = highlight,
-        _tabs = {}, _currentTab = nil, _visible = false, _collapsed = false, Title = title,
+        _tabs = {}, _currentTab = nil, _visible = false, Title = title,
     }
 
-    -- Animations
+    -- Show / hide animations ----------------------------------
     local function animateIn()
+        if window._visible then return end
         root.Visible = true
         window._visible = true
-        tween(rootScale, TweenInfo.new(0.5, Enum.EasingStyle.Back, O), { Scale = 1 })
+        tween(bodyScale, TweenInfo.new(0.5, Enum.EasingStyle.Back, O), { Scale = 1 })
         tween(main, SLOW, { GroupTransparency = 0 })
         tween(shadow, SLOW, { ImageTransparency = 0.55 })
     end
 
     local function animateOut(done)
         window._visible = false
-        tween(rootScale, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Scale = 0.92 })
+        tween(bodyScale, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Scale = 0.92 })
         tween(main, SMOOTH, { GroupTransparency = 1 })
         tween(shadow, SMOOTH, { ImageTransparency = 1 })
         task.delay(0.26, function()
@@ -1351,18 +1571,100 @@ function Azure:CreateWindow(cfg)
         end)
     end
 
-    makeDraggable(root, header, maid,
+    -- Dragging -------------------------------------------------
+    local drag = makeDraggable(root, header, maid,
+        function() return Vector2.new(size.X, collapsed and 44 or size.Y) end,
         function() tween(mainStroke, FAST, { Color = T.StrokeHigh, Transparency = 0 }) end,
         function() tween(mainStroke, SMOOTH, { Color = T.Stroke, Transparency = 0.2 }) end)
 
-    -- Collapse to header
+    -- Corner resizers -------------------------------------------
+    local handles = {}
+    local resizing
+
+    if cfg.Resizable ~= false then
+        local CORNERS = {
+            { a = Vector2.new(0, 0), sx = -1, sy = -1 },
+            { a = Vector2.new(1, 0), sx = 1,  sy = -1 },
+            { a = Vector2.new(0, 1), sx = -1, sy = 1 },
+            { a = Vector2.new(1, 1), sx = 1,  sy = 1 },
+        }
+
+        for _, c in ipairs(CORNERS) do
+            local h = new("TextButton", {
+                BackgroundTransparency = 1, Text = "", AutoButtonColor = false,
+                AnchorPoint = c.a, Position = UDim2.fromScale(c.a.X, c.a.Y),
+                Size = UDim2.fromOffset(16, 16), ZIndex = 30, Parent = body,
+            })
+            local pos = UDim2.new(c.a.X, c.a.X == 1 and -7 or 7, c.a.Y, c.a.Y == 1 and -7 or 7)
+            local marks = {}
+            for _, sz in ipairs({ UDim2.fromOffset(10, 2), UDim2.fromOffset(2, 10) }) do
+                local m = new("Frame", {
+                    BackgroundColor3 = T.Accent, BackgroundTransparency = 1, BorderSizePixel = 0,
+                    AnchorPoint = c.a, Position = pos, Size = sz, ZIndex = 31, Parent = h,
+                })
+                corner(1, m)
+                marks[#marks + 1] = m
+            end
+            local function showMarks(on)
+                for _, m in ipairs(marks) do
+                    tween(m, FAST, { BackgroundTransparency = on and 0.15 or 1 })
+                end
+            end
+
+            h.MouseEnter:Connect(function() showMarks(true) end)
+            h.MouseLeave:Connect(function() if not resizing then showMarks(false) end end)
+
+            maid:Give(h.InputBegan:Connect(function(input)
+                if not isClick(input) or collapsed then return end
+                drag.Cancel()
+                if sizeTween then sizeTween:Cancel() end
+                resizing = {
+                    sx = c.sx, sy = c.sy, mouse = input.Position,
+                    size = size, pos = root.Position, show = showMarks,
+                }
+                showMarks(true)
+            end))
+            handles[#handles + 1] = h
+        end
+
+        maid:Give(UserInputService.InputChanged:Connect(function(input)
+            if not resizing or not isMove(input) then return end
+            local d = input.Position - resizing.mouse
+            local c2 = Workspace.CurrentCamera
+            local vp = c2 and c2.ViewportSize or Vector2.new(1920, 1080)
+            local maxW = math.max(minW, vp.X - 20)
+            local maxH = math.max(minH, vp.Y - 20)
+            local newW = math.clamp(resizing.size.X + resizing.sx * d.X, minW, maxW)
+            local newH = math.clamp(resizing.size.Y + resizing.sy * d.Y, minH, maxH)
+            local p = resizing.pos
+            -- dragging a left/top corner moves the window so the opposite corner stays put
+            local px = p.X.Offset + (resizing.sx == -1 and (resizing.size.X - newW) or 0)
+            local py = p.Y.Offset + (resizing.sy == -1 and (resizing.size.Y - newH) or 0)
+            size = Vector2.new(newW, newH)
+            root.Size = UDim2.fromOffset(newW, newH)
+            root.Position = UDim2.new(p.X.Scale, px, p.Y.Scale, py)
+        end))
+
+        maid:Give(UserInputService.InputEnded:Connect(function(input)
+            if resizing and isClick(input) then
+                resizing.show(false)
+                resizing = nil
+            end
+        end))
+    end
+
+    -- Collapse to header ---------------------------------------
     minBtn.MouseButton1Click:Connect(function()
-        window._collapsed = not window._collapsed
-        local h = window._collapsed and 44 or height
-        tween(root, TweenInfo.new(0.35, Enum.EasingStyle.Quart, O), { Size = UDim2.fromOffset(width, h) })
-        minBtn.Text = window._collapsed and "+" or "-"
+        collapsed = not collapsed
+        if sizeTween then sizeTween:Cancel() end
+        sizeTween = TweenService:Create(root, TweenInfo.new(0.38, Enum.EasingStyle.Quart, O),
+            { Size = UDim2.fromOffset(size.X, collapsed and 44 or size.Y) })
+        sizeTween:Play()
+        minBtn.Text = collapsed and "+" or "-"
+        for _, h in ipairs(handles) do h.Visible = not collapsed end
     end)
 
+    -- Public API -------------------------------------------------
     local destroying = false
     function window:Destroy()
         if destroying then return end
@@ -1380,7 +1682,15 @@ function Azure:CreateWindow(cfg)
         if state then animateIn() else animateOut() end
     end
 
-    function window:SetTitle(t) titleLbl.Text = tostring(t); window.Title = t end
+    function window:SetToggleKey(key)
+        toggleKey = key or nil
+        refreshHint()
+    end
+
+    function window:SetTitle(t)
+        titleLbl.Text = tostring(t)
+        window.Title = t
+    end
 
     function window:Notify(opts) return api:Notify(opts) end
 
@@ -1395,19 +1705,14 @@ function Azure:CreateWindow(cfg)
         if tab and tab.Select then tab:Select() end
     end
 
-    if cfg.ToggleKey then
-        maid:Give(UserInputService.InputBegan:Connect(function(input, gp)
-            if gp then return end
-            if input.KeyCode == cfg.ToggleKey then window:Toggle() end
-        end))
-    end
+    maid:Give(UserInputService.InputBegan:Connect(function(input, gp)
+        if gp or not toggleKey then return end
+        if input.KeyCode == toggleKey then window:Toggle() end
+    end))
 
-    gui.Destroying:Connect(function()
-        maid:Clean()
-        notifHolder = notifHolder -- notifications live in their own gui
-    end)
+    gui.Destroying:Connect(function() maid:Clean() end)
 
-    -- Loading screen (on by default; pass Loading = false to skip, or a table to customise)
+    -- Loading screen (on by default) -----------------------------
     if cfg.Loading == false then
         animateIn()
     else
@@ -1429,9 +1734,10 @@ local Azure = loadstring(game:HttpGet("YOUR_URL"))()
 
 local Window = Azure:CreateWindow({
     Title = "Azure",
-    ToggleKey = Enum.KeyCode.RightShift,
-    -- Loading = false,                          -- skip loading screen
-    -- Loading = { Duration = 3, Steps = {...} } -- customise it
+    Theme = "Violet",            -- Violet | Ocean | Rose | Emerald
+    -- ToggleKey = Enum.KeyCode.RightShift,   -- default is Insert
+    -- Nebula = false,                         -- turn the background effect off
+    -- Loading = false,                        -- skip the loading screen
 })
 
 local Main = Window:CreateTab({ Name = "Main" })
