@@ -713,4 +713,153 @@ local function makeTab(window, cfg, self)
         local el = makeInput(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
     end
     function tab:CreateParagraph(cfg)
-        local el = makeParagraph(content, cfg, self
+        local el = makeParagraph(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el    end
+    function tab:CreateDropdown(cfg)
+        local el = makeDropdown(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
+    end
+    function tab:CreateLabel(cfg)
+        local el = makeLabel(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
+    end
+
+    return tab
+end
+
+-- ============================================================
+-- Window
+-- ============================================================
+
+function Azure:CreateWindow(cfg)
+    cfg = cfg or {}
+    local width  = cfg.Width  or 560
+    local height = cfg.Height or 460
+    local title  = cfg.Title  or "Azure"
+
+    local gui = new("ScreenGui", {
+        Name = "AzureUI", ResetOnSpawn = false,
+        IgnoreGuiInset = true, DisplayOrder = 9999,
+    })
+    safeParent(gui)
+
+    local shadow = new("Frame", {
+        Name = "Shadow", BackgroundColor3 = Color3.new(0, 0, 0),
+        BackgroundTransparency = 0.75, BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
+        Size = UDim2.new(0, width + 6, 0, height + 6),
+        ZIndex = 0, Parent = gui,
+    })
+    corner(self.Radius.Window, shadow)
+
+    local main = new("Frame", {
+        Name = "Main", BackgroundColor3 = self.Theme.Background, BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0.5, 0),
+        Size = UDim2.new(0, width, 0, height),
+        ClipsDescendants = true, Parent = gui,
+    })
+    corner(self.Radius.Window, main)
+    stroke(self.Theme.Stroke, 1, 0.2, main)
+
+    local header = new("Frame", {
+        Name = "Header", BackgroundColor3 = self.Theme.Surface,
+        BorderSizePixel = 0, Size = UDim2.new(1, 0, 0, 42), Parent = main,
+    })
+    new("Frame", {
+        BackgroundColor3 = self.Theme.Accent, BorderSizePixel = 0,
+        Size = UDim2.new(1, 0, 0, 1), Position = UDim2.new(0, 0, 1, -1),
+        BackgroundTransparency = 0.6, Parent = header,
+    })
+    new("TextLabel", {
+        BackgroundTransparency = 1, Position = UDim2.new(0, 16, 0, 0),
+        Size = UDim2.new(0.7, 0, 1, 0), Font = self.Fonts.Bold,
+        Text = title, TextColor3 = self.Theme.Text, TextSize = 14,
+        TextXAlignment = Enum.TextXAlignment.Left, Parent = header,
+    })
+
+    local close = new("TextButton", {
+        BackgroundColor3 = self.Theme.SurfaceHigh, BorderSizePixel = 0,
+        AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0),
+        Size = UDim2.new(0, 24, 0, 24), AutoButtonColor = false,
+        Text = "x", Font = self.Fonts.Bold,
+        TextColor3 = self.Theme.TextMuted, TextSize = 14, Parent = header,
+    })
+    corner(6, close)
+    close.MouseEnter:Connect(function()
+        tween(close, 0.15, { BackgroundColor3 = self.Theme.Error, TextColor3 = Color3.new(1, 1, 1) })
+    end)
+    close.MouseLeave:Connect(function()
+        tween(close, 0.15, { BackgroundColor3 = self.Theme.SurfaceHigh, TextColor3 = self.Theme.TextMuted })
+    end)
+
+    local sidebar = new("Frame", {
+        Name = "Sidebar", BackgroundColor3 = self.Theme.Surface,
+        BorderSizePixel = 0, Position = UDim2.new(0, 0, 0, 42),
+        Size = UDim2.new(0, 150, 1, -42), Parent = main,
+    })
+    local sidebarList = new("Frame", {
+        BackgroundTransparency = 1, Size = UDim2.new(1, -16, 1, -16),
+        Position = UDim2.new(0, 8, 0, 8), Parent = sidebar,
+    })
+    new("UIListLayout", {
+        SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4),
+        Parent = sidebarList,
+    })
+
+    local contentHolder = new("Frame", {
+        Name = "Content", BackgroundTransparency = 1,
+        Position = UDim2.new(0, 150, 0, 42),
+        Size = UDim2.new(1, -150, 1, -42), Parent = main,
+    })
+
+    local window = {
+        _gui = gui, _main = main, _header = header, _sidebar = sidebar,
+        _sidebarList = sidebarList, _contentHolder = contentHolder,
+        _tabs = {}, _currentTab = nil, Title = title,
+    }
+
+    makeDraggable(main, header)
+
+    close.MouseButton1Click:Connect(function()
+        tween(main, 0.2, { BackgroundTransparency = 1 })
+        tween(shadow, 0.2, { BackgroundTransparency = 1 })
+        task.wait(0.22)
+        gui:Destroy()
+    end)
+
+    function window:CreateTab(cfg)
+        cfg = cfg or {}
+        local tab = makeTab(window, cfg, self)
+        window._tabs[#window._tabs + 1] = tab
+        if #window._tabs == 1 then tab:Select() end
+        return tab
+    end
+
+    function window:SelectTab(tab)
+        if tab and tab.Select then tab:Select() end
+    end
+
+    function window:Destroy() gui:Destroy() end
+
+    function window:Toggle(state)
+        if state == nil then
+            main.Visible = not main.Visible
+            shadow.Visible = main.Visible
+        else
+            main.Visible = state
+            shadow.Visible = state
+        end
+    end
+
+    if cfg.ToggleKey then
+        UserInputService.InputBegan:Connect(function(input, gp)
+            if gp then return end
+            if input.KeyCode == cfg.ToggleKey then window:Toggle() end
+        end)
+    end
+
+    return window
+end
+
+-- ============================================================
+-- Ready
+-- ============================================================
+
+return Azure
