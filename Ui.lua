@@ -234,7 +234,7 @@ function Azure:Load(opts)
     local T = self.Theme
     local title = opts.Title or "Azure"
     local steps = opts.Steps or { "Initializing", "Loading assets", "Building interface", "Finalizing" }
-    local duration = opts.Duration or 2.6
+    local duration = opts.Duration or 2.4
 
     local gui = new("ScreenGui", {
         Name = "AzureLoading", ResetOnSpawn = false,
@@ -244,34 +244,32 @@ function Azure:Load(opts)
 
     local finished = Instance.new("BindableEvent")
 
-    local overlay = new("CanvasGroup", {
-        BackgroundColor3 = Color3.fromRGB(10, 10, 15), BorderSizePixel = 0,
-        Size = UDim2.fromScale(1, 1), GroupTransparency = 1, Parent = gui,
+    -- compact centered card, no full-screen overlay
+    local root = new("Frame", {
+        BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(300, 100), Parent = gui,
     })
-    -- soft vignette so the screen isn't flat black
-    local vignette = new("Frame", {
-        BackgroundColor3 = T.AccentDim, BorderSizePixel = 0,
-        Size = UDim2.fromScale(1, 1), BackgroundTransparency = 0.93, Parent = overlay,
-    })
-    new("UIGradient", {
-        Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 1),
-            NumberSequenceKeypoint.new(0.5, 0),
-            NumberSequenceKeypoint.new(1, 1),
-        }),
-        Rotation = 90, Parent = vignette,
+    local rootScale = new("UIScale", { Scale = 0.88, Parent = root })
+
+    local shadow = new("ImageLabel", {
+        BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.new(1, 56, 1, 56),
+        Image = "rbxassetid://6014261993", ImageColor3 = Color3.new(0, 0, 0),
+        ImageTransparency = 1, ScaleType = Enum.ScaleType.Slice,
+        SliceCenter = Rect.new(49, 49, 450, 450), ZIndex = 0, Parent = root,
     })
 
-    local center = new("Frame", {
-        BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(360, 230), Parent = overlay,
+    local card = new("CanvasGroup", {
+        BackgroundColor3 = T.Background, BorderSizePixel = 0,
+        Size = UDim2.fromScale(1, 1), GroupTransparency = 1, Parent = root,
     })
-    local centerScale = new("UIScale", { Scale = 0.92, Parent = center })
+    corner(self.Radius.Window, card)
+    stroke(T.Stroke, 1, 0.2, card)
 
     -- spinner
     local spinner = new("Frame", {
-        BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0),
-        Position = UDim2.new(0.5, 0, 0, 0), Size = UDim2.fromOffset(76, 76), Parent = center,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(20, 18),
+        Size = UDim2.fromOffset(36, 36), Parent = card,
     })
     local track = new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = spinner })
     corner(999, track)
@@ -279,50 +277,46 @@ function Azure:Load(opts)
 
     local arc = new("Frame", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = spinner })
     corner(999, arc)
-    stroke(T.Accent, 3, 0, arc)
+    local arcStroke = stroke(T.Accent, 3, 0, arc)
     local arcGrad = new("UIGradient", {
         Transparency = NumberSequence.new({
             NumberSequenceKeypoint.new(0, 0),
-            NumberSequenceKeypoint.new(0.38, 1),
+            NumberSequenceKeypoint.new(0.4, 1),
             NumberSequenceKeypoint.new(1, 1),
         }),
-        Parent = arc:FindFirstChildOfClass("UIStroke"),
+        Parent = arcStroke,
     })
     local spin = TweenService:Create(arcGrad,
-        TweenInfo.new(1.1, Enum.EasingStyle.Linear, O, -1), { Rotation = 360 })
+        TweenInfo.new(1, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), { Rotation = 360 })
     spin:Play()
-
-    local monogram = new("TextLabel", {
-        BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1),
-        Font = self.Fonts.Bold, Text = string.upper(string.sub(title, 1, 1)),
-        TextColor3 = T.Accent, TextSize = 28, TextTransparency = 1, Parent = spinner,
-    })
-    local pulse = TweenService:Create(monogram,
-        TweenInfo.new(0.9, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { TextSize = 32 })
 
     -- text
     local titleLbl = new("TextLabel", {
-        BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 100 + 10),
-        Size = UDim2.new(1, 0, 0, 34), Font = self.Fonts.Bold, Text = title,
-        TextColor3 = T.Text, TextSize = 28, TextTransparency = 1, Parent = center,
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(68, 16),
+        Size = UDim2.new(1, -128, 0, 18), Font = self.Fonts.Bold, Text = title,
+        TextColor3 = T.Text, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, Parent = card,
     })
-    local subLbl = new("TextLabel", {
-        BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 138),
-        Size = UDim2.new(1, 0, 0, 16), Font = self.Fonts.Regular,
-        Text = opts.Subtitle or steps[1], TextColor3 = T.TextMuted,
-        TextSize = 12, TextTransparency = 1, Parent = center,
+    local statusLbl = new("TextLabel", {
+        BackgroundTransparency = 1, Position = UDim2.fromOffset(68, 36),
+        Size = UDim2.new(1, -88, 0, 14), Font = self.Fonts.Regular,
+        Text = opts.Subtitle or steps[1], TextColor3 = T.TextMuted, TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left, Parent = card,
+    })
+    local percent = new("TextLabel", {
+        BackgroundTransparency = 1, AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -20, 0, 18), Size = UDim2.fromOffset(44, 16),
+        Font = self.Fonts.Medium, Text = "0%", TextColor3 = T.Accent, TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Right, Parent = card,
     })
 
     -- bar
     local barTrack = new("Frame", {
         BackgroundColor3 = T.SurfaceHigh, BorderSizePixel = 0,
-        AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 170),
-        Size = UDim2.fromOffset(260, 4), BackgroundTransparency = 1, Parent = center,
+        Position = UDim2.new(0, 20, 0, 78), Size = UDim2.new(1, -40, 0, 4), Parent = card,
     })
     corner(2, barTrack)
     local barFill = new("Frame", {
-        BackgroundColor3 = T.Accent, BorderSizePixel = 0,
-        Size = UDim2.fromScale(0, 1), Parent = barTrack,
+        BackgroundColor3 = T.Accent, BorderSizePixel = 0, Size = UDim2.fromScale(0, 1), Parent = barTrack,
     })
     corner(2, barFill)
     local barGrad = new("UIGradient", {
@@ -332,26 +326,14 @@ function Azure:Load(opts)
         }),
         Parent = barFill,
     })
-    local percent = new("TextLabel", {
-        BackgroundTransparency = 1, Position = UDim2.new(0, 0, 0, 184),
-        Size = UDim2.new(1, 0, 0, 14), Font = self.Fonts.Medium, Text = "0%",
-        TextColor3 = T.TextDim, TextSize = 11, TextTransparency = 1, Parent = center,
-    })
 
     -- enter
-    tween(overlay, SMOOTH, { GroupTransparency = 0 })
-    tween(centerScale, SLOW, { Scale = 1 })
-    tween(monogram, SLOW, { TextTransparency = 0 })
-    tween(titleLbl, SLOW, { TextTransparency = 0, Position = UDim2.new(0, 0, 0, 100) })
-    task.delay(0.1, function() tween(subLbl, SLOW, { TextTransparency = 0 }) end)
-    task.delay(0.15, function()
-        tween(barTrack, SLOW, { BackgroundTransparency = 0 })
-        tween(percent, SLOW, { TextTransparency = 0 })
-    end)
-    pulse:Play()
+    TweenService:Create(rootScale, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+    TweenService:Create(card, SMOOTH, { GroupTransparency = 0 }):Play()
+    TweenService:Create(shadow, SLOW, { ImageTransparency = 0.55 }):Play()
 
-    -- progress is driven by a NumberValue so bar, %, and step text stay in sync
-    local progress = Instance.new("NumberValue")
+    -- progress driven by a NumberValue. It MUST be parented, tween() ignores orphans.
+    local progress = new("NumberValue", { Value = 0, Parent = gui })
     local lastStep = 1
     progress.Changed:Connect(function(v)
         barFill.Size = UDim2.fromScale(v, 1)
@@ -359,45 +341,39 @@ function Azure:Load(opts)
         local idx = math.clamp(math.floor(v * #steps) + 1, 1, #steps)
         if idx ~= lastStep then
             lastStep = idx
-            subLbl.Text = steps[idx]
-            subLbl.TextTransparency = 0.8
-            tween(subLbl, FAST, { TextTransparency = 0 })
+            statusLbl.Text = steps[idx]
+            statusLbl.TextTransparency = 0.7
+            tween(statusLbl, FAST, { TextTransparency = 0 })
         end
     end)
-
-    local shimmer = TweenService:Create(barGrad,
-        TweenInfo.new(1.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-        { Offset = Vector2.new(0.3, 0) })
-    barGrad.Offset = Vector2.new(-0.3, 0)
-    shimmer:Play()
 
     local destroyed = false
     local function destroy()
         if destroyed then return end
         destroyed = true
-        spin:Cancel(); pulse:Cancel(); shimmer:Cancel()
-        progress:Destroy()
+        spin:Cancel()
         finished:Fire()
-        tween(centerScale, SMOOTH, { Scale = 1.08 })
-        tween(overlay, TweenInfo.new(0.4, Q, O), { GroupTransparency = 1 })
-        task.delay(0.45, function()
-            if gui then gui:Destroy() end
+        TweenService:Create(rootScale, TweenInfo.new(0.3, Q, O), { Scale = 0.94 }):Play()
+        TweenService:Create(card, SMOOTH, { GroupTransparency = 1 }):Play()
+        TweenService:Create(shadow, SMOOTH, { ImageTransparency = 1 }):Play()
+        task.delay(0.4, function()
+            gui:Destroy()
             finished:Destroy()
         end)
     end
 
-    task.delay(0.2, function()
+    task.delay(0.35, function()
         if destroyed then return end
-        local t = tween(progress, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { Value = 1 })
-        if t then
-            t.Completed:Connect(function()
-                if destroyed then return end
-                subLbl.Text = "Ready"
-                tween(barFill, FAST, { BackgroundColor3 = T.Success })
-                tween(percent, FAST, { TextColor3 = T.Success })
-                task.delay(0.35, destroy)
-            end)
-        end
+        local t = TweenService:Create(progress,
+            TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { Value = 1 })
+        t.Completed:Connect(function()
+            if destroyed then return end
+            statusLbl.Text = "Ready"
+            tween(barFill, FAST, { BackgroundColor3 = T.Success })
+            tween(percent, FAST, { TextColor3 = T.Success })
+            task.delay(0.35, destroy)
+        end)
+        t:Play()
     end)
 
     return { Finished = finished.Event, Gui = gui, Destroy = destroy }
