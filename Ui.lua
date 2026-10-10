@@ -12,10 +12,6 @@ local LocalPlayer      = Players.LocalPlayer
 local Azure = {}
 Azure.__index = Azure
 
--- ============================================================
--- Theme
--- ============================================================
-
 Azure.Theme = {
     Background  = Color3.fromRGB(16, 16, 22),
     Surface     = Color3.fromRGB(22, 22, 30),
@@ -40,10 +36,6 @@ Azure.Fonts = {
 }
 
 Azure.Radius = { Window = 14, Card = 10, Small = 6 }
-
--- ============================================================
--- Utilities
--- ============================================================
 
 local function new(class, props, children)
     local inst = Instance.new(class)
@@ -114,10 +106,6 @@ local function makeDraggable(frame, handle)
         end
     end)
 end
-
--- ============================================================
--- Notifications
--- ============================================================
 
 local notifHolder
 local function getNotifHolder()
@@ -196,10 +184,6 @@ function Azure:Notify(opts)
 
     return card
 end
-
--- ============================================================
--- Elements
--- ============================================================
 
 local function makeToggle(parent, cfg, self)
     local state = cfg.CurrentValue == true
@@ -624,10 +608,6 @@ local function makeDivider(parent, self)
     })
 end
 
--- ============================================================
--- Tab
--- ============================================================
-
 local function makeTab(window, cfg, self)
     local name = cfg.Name or "Tab"
 
@@ -713,7 +693,8 @@ local function makeTab(window, cfg, self)
         local el = makeInput(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
     end
     function tab:CreateParagraph(cfg)
-        local el = makeParagraph(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el    end
+        local el = makeParagraph(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
+    end
     function tab:CreateDropdown(cfg)
         local el = makeDropdown(content, cfg, self); el.Instance.LayoutOrder = nextOrder(); return el
     end
@@ -723,10 +704,6 @@ local function makeTab(window, cfg, self)
 
     return tab
 end
-
--- ============================================================
--- Window
--- ============================================================
 
 function Azure:CreateWindow(cfg)
     cfg = cfg or {}
@@ -857,9 +834,5 @@ function Azure:CreateWindow(cfg)
 
     return window
 end
-
--- ============================================================
--- Ready
--- ============================================================
 
 return Azure
